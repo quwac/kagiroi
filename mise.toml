@@ -56,6 +56,10 @@ run = "node scripts/test-connection-target.mjs"
 description = "Check positive and negative Kagiroi Kotlin/Wasm compiler fixtures"
 run = "bun scripts/test-compile.mjs"
 
+[tasks."test:ci-changes"]
+description = "Check CI change routing"
+run = "node scripts/test-ci-changes.mjs"
+
 [tasks.test]
 description = "Run all local Kotlin, database, and compiler tests in order"
 run = [
