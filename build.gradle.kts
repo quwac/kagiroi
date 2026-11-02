@@ -1,3 +1,4 @@
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmExtension
 import org.jetbrains.kotlin.gradle.targets.wasm.npm.WasmNpmExtension
 
@@ -32,8 +33,44 @@ plugins {
     kotlin("multiplatform") version "2.4.21" apply false
     kotlin("plugin.serialization") version "2.4.21" apply false
     id("com.android.kotlin.multiplatform.library") version "9.5.0" apply false
+    id("com.vanniktech.maven.publish") version "0.37.0" apply false
     id("dev.detekt") version "2.0.0-alpha.6"
 }
+
+val publishedProjects = setOf(
+    ":kagiroi-bom",
+    ":kagiroi-core",
+    ":kagiroi-d1-driver",
+    ":kagiroi-kotlinx-datetime",
+    ":kagiroi-mariadb",
+    ":kagiroi-mysql",
+    ":kagiroi-mysql-hyperdrive-driver",
+    ":kagiroi-mysql-kotlinx-datetime",
+    ":kagiroi-mysql-node-driver",
+    ":kagiroi-mysql-quwac-bignumber",
+    ":kagiroi-node-oracle-driver",
+    ":kagiroi-oracle",
+    ":kagiroi-oracle-kotlinx-datetime",
+    ":kagiroi-oracle-quwac-bignumber",
+    ":kagiroi-pglite-driver",
+    ":kagiroi-postgres",
+    ":kagiroi-postgres-hyperdrive-driver",
+    ":kagiroi-postgres-kotlinx-datetime",
+    ":kagiroi-postgres-node-driver",
+    ":kagiroi-postgres-quwac-bignumber",
+    ":kagiroi-quwac-bignumber",
+    ":kagiroi-schema",
+    ":kagiroi-sql",
+    ":kagiroi-sqlite",
+    ":kagiroi-sqlite-file-driver",
+    ":kagiroi-sqlite-inmemory-driver",
+    ":kagiroi-sqlite-kotlinx-datetime",
+    ":kagiroi-sqlite-quwac-bignumber",
+    ":kagiroi-sqlserver",
+    ":kagiroi-sqlserver-kotlinx-datetime",
+    ":kagiroi-sqlserver-node-driver",
+    ":kagiroi-sqlserver-quwac-bignumber",
+)
 
 val connectionTargetProjects = setOf(
     ":kagiroi-d1-driver",
@@ -68,7 +105,47 @@ subprojects {
 
 allprojects {
     group = "dev.quwac.kagiroi"
-    version = "0.0.1-SNAPSHOT"
+    version = providers.gradleProperty("version").getOrElse("0.1.0-SNAPSHOT")
+}
+
+subprojects {
+    if (path in publishedProjects) {
+        apply(plugin = "com.vanniktech.maven.publish")
+
+        extensions.configure<MavenPublishBaseExtension> {
+            publishToMavenCentral()
+            if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+                signAllPublications()
+            }
+
+            coordinates(project.group.toString(), project.name, project.version.toString())
+            pom {
+                name.set("Kagiroi ${project.name}")
+                description.set("Type-safe Kotlin Multiplatform SQL toolkit for Kotlin/JS and Kotlin/Wasm.")
+                inceptionYear.set("2026")
+                url.set("https://github.com/quwac/kagiroi")
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/license/mit")
+                        distribution.set("repo")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("quwac")
+                        name.set("quwabara")
+                        url.set("https://github.com/quwac")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:https://github.com/quwac/kagiroi.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/quwac/kagiroi.git")
+                    url.set("https://github.com/quwac/kagiroi")
+                }
+            }
+        }
+    }
 }
 
 dependencies {

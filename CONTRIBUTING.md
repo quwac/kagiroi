@@ -44,6 +44,25 @@ and `oracle-direct`. `test:containers` runs its eight container-backed targets.
 `hk fix --all` applies supported fixes. The pre-commit hook checks staged files
 without fixing or staging them.
 
+## Publishing
+
+Every `kagiroi-*` library module and `kagiroi-bom` is published to Maven Central
+under `dev.quwac.kagiroi`. Test support, compiler fixtures, and Worker integration
+fixtures are not published.
+
+The Publish workflow runs when a `vX.Y.Z` tag is pushed from `main`. It verifies
+the tag commit is contained in `main`, runs quality checks and the local test
+lanes, verifies `publishToMavenLocal`, then signs and releases the artifacts.
+The workflow requires `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`,
+`SIGNING_KEY`, and `SIGNING_PASSWORD` repository secrets.
+
+Create a release tag only from a clean local `main` that exactly matches
+`origin/main`:
+
+```sh
+mise run release 0.1.0
+```
+
 ## Local Hyperdrive Worker contracts
 
 The `postgres-hyperdrive`, `mysql-hyperdrive`, and `mariadb-hyperdrive` targets
