@@ -1,0 +1,106 @@
+[tools]
+java = "temurin-17.0.20+101"
+bun = "1.4.3"
+node = "22.23.4"
+hk = "2.6.0"
+pkl = "0.32.1"
+lychee = "0.24.2"
+gh = "2.102.0"
+"github:github/gh-actions-lock" = { version = "0.2.0", bin = "gh-actions-lock" }
+"github:jdx/jactionlint" = "2.2.0"
+zizmor = "1.31.1"
+betterleaks = "1.9.0"
+
+[settings]
+lockfile = true
+minimum_release_age = "3d"
+
+[tool_config]
+locked = true
+
+[tasks.setup]
+description = "Install frozen dependencies and register the repository's Git hooks"
+run = [
+    { task = "deps" },
+    "hk install --mise",
+]
+
+[tasks.deps]
+description = "Install locked tooling and database test dependencies with Bun"
+run = "bun install --frozen-lockfile"
+
+[tasks."test:kotlin"]
+description = "Run Kotlin library tests without connection-target integration tests"
+depends = ["deps"]
+run = "node scripts/test-library.mjs"
+
+[tasks."test:pglite:bun"]
+description = "Run the PGlite JS and Wasm test bundles with Bun"
+run = [
+    "./gradlew :kagiroi-pglite-driver:jsNodeTest :kagiroi-pglite-driver:wasmJsNodeTest",
+    "bun build/js/node_modules/mocha/bin/mocha.js --timeout 30000 --require build/js/node_modules/kotlin-web-helpers/dist/kotlin-test-nodejs-runner.js build/js/packages/kagiroi-kagiroi-pglite-driver-test/kotlin/kagiroi-kagiroi-pglite-driver-test.js",
+    "bun build/wasm/packages/kagiroi-kagiroi-pglite-driver-test/static/runUnitTests.mjs",
+]
+
+[tasks."test:containers"]
+description = "Run Testcontainers-backed connection target contracts"
+depends = ["deps"]
+run = "node scripts/test-database-containers.mjs"
+
+[tasks."test:connection-target"]
+description = "Run one README connection target contract"
+depends = ["deps"]
+run = "node scripts/test-connection-target.mjs"
+
+[tasks."test:compile"]
+description = "Check positive and negative Kagiroi Kotlin/Wasm compiler fixtures"
+run = "bun scripts/test-compile.mjs"
+
+[tasks.test]
+description = "Run all local Kotlin, database, and compiler tests in order"
+run = [
+    { task = "test:kotlin" },
+    "mise run test:connection-target sqlite-inmemory",
+    "mise run test:connection-target sqlite-file",
+    "mise run test:connection-target d1",
+    "mise run test:connection-target pglite",
+    { task = "test:containers" },
+    { task = "test:compile" },
+]
+
+[tasks.release]
+description = "Create and push a Maven Central release tag from main"
+usage = 'arg "<version>" help="Release version in v1.0.0 or 1.0.0 format"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+version="${usage_version#v}"
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Expected version in v1.0.0 or 1.0.0 format" >&2
+  exit 1
+fi
+tag="v$version"
+
+if [[ "$(git branch --show-current)" != "main" ]]; then
+  echo "Release tags must be created from main" >&2
+  exit 1
+fi
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "The worktree must be clean" >&2
+  exit 1
+fi
+
+git fetch origin main --tags
+if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+  echo "Local main must match origin/main" >&2
+  exit 1
+fi
+if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; then
+  echo "Tag already exists: $tag" >&2
+  exit 1
+fi
+
+git tag --annotate "$tag" --message "$tag"
+git push origin "$tag"
+'''

@@ -1,0 +1,76 @@
+package dev.quwac.kagiroi.d1
+
+import dev.quwac.kagiroi.sql.DeleteQuery
+import dev.quwac.kagiroi.sql.DeleteQueryState
+import dev.quwac.kagiroi.sql.ExecuteResult
+import dev.quwac.kagiroi.sql.InsertQuery
+import dev.quwac.kagiroi.sql.InsertQueryState
+import dev.quwac.kagiroi.sql.NonEmptyList
+import dev.quwac.kagiroi.sql.RawSqlRow
+import dev.quwac.kagiroi.sql.RenderedSql
+import dev.quwac.kagiroi.sql.SqlRenderer
+import dev.quwac.kagiroi.sql.UpdateQuery
+import dev.quwac.kagiroi.sql.UpdateQueryState
+import dev.quwac.kagiroi.sql.toNonEmptyListOrNull
+import dev.quwac.kagiroi.sqlite.SqliteDialect
+
+data class D1ExecuteMetadata(
+    val servedBy: String? = null,
+    val servedByRegion: String? = null,
+    val servedByPrimary: Boolean? = null,
+    val durationMilliseconds: Double? = null,
+    val lastRowId: Long? = null,
+    val changedDatabase: Boolean? = null,
+    val sizeAfter: Long? = null,
+    val rowsRead: Long? = null,
+    val rowsWritten: Long? = null,
+    val totalAttempts: Int? = null,
+    val changes: Long = 0,
+)
+
+data class D1BatchResult(
+    val result: ExecuteResult,
+    val metadata: D1ExecuteMetadata,
+    val rows: List<RawSqlRow> = emptyList(),
+)
+
+class D1BatchStatement internal constructor(internal val rendered: RenderedSql)
+
+class D1BatchBuilder internal constructor() {
+    private val statements = mutableListOf<D1BatchStatement>()
+    private val renderer = SqlRenderer(SqliteDialect)
+
+    fun <S : InsertQueryState.Renderable> add(statement: InsertQuery<S>) {
+        statements += D1BatchStatement(renderer.render(statement))
+    }
+
+    fun <S : UpdateQueryState.Renderable> add(statement: UpdateQuery<S>) {
+        statements += D1BatchStatement(renderer.render(statement))
+    }
+
+    fun <S : DeleteQueryState.Renderable> add(statement: DeleteQuery<S>) {
+        statements += D1BatchStatement(renderer.render(statement))
+    }
+
+    fun raw(sql: String, parameters: List<Any?> = emptyList()) {
+        statements += D1BatchStatement(
+            RenderedSql(sql, parameters.map { dev.quwac.kagiroi.sql.SqlParameter(it, null) }),
+        )
+    }
+
+    internal fun build(): NonEmptyList<D1BatchStatement> = requireNotNull(statements.toNonEmptyListOrNull()) {
+        "D1 batch must contain at least one statement"
+    }
+}
+
+fun <S : InsertQueryState.Renderable> d1BatchStatement(statement: InsertQuery<S>): D1BatchStatement =
+    D1BatchStatement(SqlRenderer(SqliteDialect).render(statement))
+
+fun <S : UpdateQueryState.Renderable> d1BatchStatement(statement: UpdateQuery<S>): D1BatchStatement =
+    D1BatchStatement(SqlRenderer(SqliteDialect).render(statement))
+
+fun <S : DeleteQueryState.Renderable> d1BatchStatement(statement: DeleteQuery<S>): D1BatchStatement =
+    D1BatchStatement(SqlRenderer(SqliteDialect).render(statement))
+
+fun d1RawBatchStatement(sql: String, parameters: List<Any?> = emptyList()): D1BatchStatement =
+    D1BatchStatement(RenderedSql(sql, parameters.map { dev.quwac.kagiroi.sql.SqlParameter(it, null) }))
