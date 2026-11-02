@@ -18,7 +18,7 @@
     "markdownlint-cli2": "0.24.0",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
-    "wrangler": "4.155.0"
+    "wrangler": "4.156.0"
   },
   "overrides": {
     "katex": "0.18.2"
