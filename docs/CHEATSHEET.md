@@ -290,6 +290,9 @@ Generated columns are read-only and require `Virtual` or `Stored`.
 ## SELECT
 
 `select(...)` defines results, `from(...)` sources, `where` filters, and `orderBy` sorts.
+Database I/O happens from suspending terminal operations such as `.all()`, `.one()`,
+`.oneOrNull()`, `.execute()`, and DDL execution, or when a `Flow` is collected. Query construction
+and SQL rendering remain synchronous.
 
 ```kotlin
 // SQL: SELECT id, email
@@ -325,6 +328,11 @@ val summaries = database.select(Users.id, Users.email)
 | `.stream()` | `Flow<SqlRow>` |
 | `.one()` | Exactly one row; fails for zero or multiple rows |
 | `.oneOrNull()` | `null` for zero rows; fails for multiple rows |
+
+`stream()` is cold: SQL runs when collection starts, and collector cancellation stops emission and
+releases the execution scope. Check `SqlCapabilities.Streaming`: current bundled drivers report
+`BUFFERED`, so the driver has fetched all result rows before the Flow emits them. They do not claim
+cursor-based row streaming.
 
 Read rows by selected column or alias, not string name. `row[Users.id]` is `Uuid`.
 
@@ -1038,6 +1046,14 @@ val rawRows = database.queryRaw("SELECT id FROM users WHERE id = ?", listOf(user
 
 `transaction` commits normally and rolls back on exception. Use `savepoint` for partial
 rollback; nested transactions and D1 interactive transactions are unavailable.
+
+The transaction and savepoint blocks are suspending. They preserve the caller's `CoroutineContext`:
+`withTimeout` and cancellation roll back before their `CancellationException` is propagated.
+Cleanup failures are retained as suppressed exceptions. Once commit has completed, cancellation is
+still propagated but does not trigger a compensating rollback. Use structured concurrency inside a
+transaction; a transaction scope rejects use after its block returns. Concurrent work on separate
+database calls may use separate driver connections, while a transaction remains bound to its one
+connection.
 
 Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for complete parameterized SQL.
 Drivers may report `ConstraintViolation` with `UNIQUE`, `FOREIGN_KEY`, `NOT_NULL`, or `CHECK`.

@@ -236,6 +236,7 @@ class NodeOracleDatabase private constructor(
 
     override suspend fun <T> transaction(block: suspend SqlTransaction.() -> T): T = runTransaction(null, block)
 
+    @Suppress("CyclomaticComplexMethod")
     private suspend fun <T> runTransaction(
         isolation: TransactionIsolation?,
         block: suspend SqlTransaction.() -> T,
@@ -246,28 +247,46 @@ class NodeOracleDatabase private constructor(
         val execution = OracleExecution(session, values, typeRegistry)
         val scope = TransactionScope(execution)
         var discard = false
+        var transactionStarted = false
         try {
-            initializeTransaction(execution, isolation)
+            currentCoroutineContext().ensureActive()
+            withContext(NonCancellable) { initializeTransaction(execution, isolation) }
+            transactionStarted = true
+            currentCoroutineContext().ensureActive()
             val result = try {
                 withContext((inherited ?: ActiveNodeOracleTransactions()).including(this)) { scope.block() }
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(execution, error) }
+                discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                execution.control("COMMIT")
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { execution.control("COMMIT") }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(execution, error) }
+                if (!committed) {
+                    discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                    transactionStarted = false
+                }
                 throw when (error) {
                     is SerializationFailure, is DeadlockFailure -> error
                     is DatabaseError -> TransactionFailure("Failed to commit Oracle transaction", error)
                     else -> error
                 }
             }
+            transactionStarted = false
             return result
         } catch (error: Throwable) {
-            discard = error.hasConnectionFailure()
+            if (transactionStarted) {
+                discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                transactionStarted = false
+            }
+            discard = discard || error.hasConnectionFailure()
             throw error
         } finally {
             scope.active = false
@@ -309,12 +328,14 @@ class NodeOracleDatabase private constructor(
         }
     }
 
-    private suspend fun rollbackAfter(execution: OracleExecution, original: Throwable) {
-        try {
-            execution.control("ROLLBACK")
-        } catch (rollback: DatabaseError) {
-            throw TransactionFailure("Failed to roll back Oracle transaction after: ${original.message}", rollback)
-        }
+    /** Returns whether the session must be discarded after an unsuccessful rollback. */
+    @Suppress("TooGenericExceptionCaught") // A rollback failure is deliberately retained on the original failure.
+    private suspend fun rollbackAfter(execution: OracleExecution, original: Throwable): Boolean = try {
+        execution.control("ROLLBACK")
+        false
+    } catch (rollback: Throwable) {
+        original.addSuppressed(TransactionFailure("Failed to roll back Oracle transaction", rollback))
+        true
     }
 
     private suspend fun <T> withSession(block: suspend (OracleExecution) -> T): T {

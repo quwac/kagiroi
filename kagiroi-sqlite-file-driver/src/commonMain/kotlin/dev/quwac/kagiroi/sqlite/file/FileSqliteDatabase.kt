@@ -178,12 +178,16 @@ class FileSqliteDatabase internal constructor(
         enterOperation()
         var accessAcquired = false
         val scope = TransactionScope()
+        var transactionStarted = false
         try {
             access.lock()
             accessAcquired = true
             ensureOpen()
             try {
-                executeEngine("BEGIN", emptyList())
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { executeEngine("BEGIN", emptyList()) }
+                transactionStarted = true
+                currentCoroutineContext().ensureActive()
             } catch (error: DatabaseError) {
                 throw TransactionFailure("Failed to begin SQLite transaction", error)
             }
@@ -193,19 +197,34 @@ class FileSqliteDatabase internal constructor(
                 }
             } catch (error: Throwable) {
                 withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                executeEngine("COMMIT", emptyList())
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { executeEngine("COMMIT", emptyList()) }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(error) }
+                if (!committed) {
+                    withContext(NonCancellable) { rollbackAfter(error) }
+                    transactionStarted = false
+                }
                 when (error) {
                     is DatabaseError -> throw TransactionFailure("Failed to commit SQLite transaction", error)
                     else -> throw error
                 }
             }
             return result
+        } catch (error: Throwable) {
+            if (transactionStarted) {
+                withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
+            }
+            throw error
         } finally {
             scope.active = false
             if (accessAcquired) access.unlock()
