@@ -2,8 +2,15 @@
   "$schema": "./node_modules/knip/schema.json",
   "workspaces": {
     ".": {
+      "entry": [
+        "integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs",
+        "integration-tests/postgres-hyperdrive/scripts/test-worker.mjs",
+        "integration-tests/mysql-hyperdrive/scripts/prepare-worker.mjs",
+        "integration-tests/mysql-hyperdrive/scripts/test-worker.mjs",
+      ],
       "project": ["scripts/**/*.{js,mjs,cjs}", "integration-tests/**/scripts/**/*.{js,mjs,cjs}"],
     },
   },
+  "ignoreDependencies": ["wrangler"],
   "ignoreUnresolved": ["^\\./gradlew$"],
 }

@@ -1,3 +1,21 @@
+/**
+ * Starts the generated PostgreSQL Hyperdrive Worker in local Miniflare and
+ * invokes its contract endpoint.
+ *
+ * Usage:
+ *   node integration-tests/postgres-hyperdrive/scripts/test-worker.mjs <target>
+ *
+ * Arguments:
+ *   target  Required. Generated Worker target: js or wasm.
+ *
+ * Required environment:
+ *   CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE
+ *       Testcontainers PostgreSQL connection string for the local binding.
+ *
+ * Examples:
+ *   node integration-tests/postgres-hyperdrive/scripts/test-worker.mjs js
+ *   node integration-tests/postgres-hyperdrive/scripts/test-worker.mjs wasm
+ */
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -6,34 +24,29 @@ const targetName = process.argv[2];
 if (targetName !== "js" && targetName !== "wasm") {
   throw new Error("Expected target 'js' or 'wasm'");
 }
-const mode = process.argv[3] ?? "contract";
-if (!["contract", "smoke", "mariadb", "mariadb-smoke"].includes(mode)) {
-  throw new Error("Expected mode 'contract', 'smoke', 'mariadb', or 'mariadb-smoke'");
+const localConnectionString = process.env.CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE;
+if (!localConnectionString) {
+  throw new Error("CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE must be set");
 }
 
 const fixture = fileURLToPath(new URL("../", import.meta.url));
 const repository = path.resolve(fixture, "../..");
-const port = targetName === "js" ? 8793 : 8794;
-const wrangler = path.join(
-  repository,
-  "examples/hello-workers/node_modules/wrangler/bin/wrangler.js",
-);
+const port = targetName === "js" ? 8791 : 8792;
+const wrangler = path.join(repository, "node_modules/wrangler/bin/wrangler.js");
 const configuration = path.join(fixture, `build/worker-${targetName}/wrangler.jsonc`);
 const output = [];
 const processHandle = spawn(
   process.execPath,
-  [
-    wrangler,
-    "dev",
-    "--remote",
-    "--config",
-    configuration,
-    "--ip",
-    "127.0.0.1",
-    "--port",
-    String(port),
-  ],
-  { cwd: repository, env: { ...process.env, CI: "true" }, stdio: ["ignore", "pipe", "pipe"] },
+  [wrangler, "dev", "--config", configuration, "--ip", "127.0.0.1", "--port", String(port)],
+  {
+    cwd: repository,
+    env: {
+      ...process.env,
+      CI: "true",
+      CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: localConnectionString,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  },
 );
 
 processHandle.stdout.on("data", capture);
@@ -42,22 +55,21 @@ processHandle.stderr.on("data", capture);
 try {
   await waitForReady();
   await new Promise((resolve) => setTimeout(resolve, 1_000));
-  const endpoint = `http://127.0.0.1:${port}/${mode}`;
-  const health = await fetch(endpoint, {
+  const health = await fetch(`http://127.0.0.1:${port}`, {
     signal: AbortSignal.timeout(30_000),
   });
   if (health.status !== 405) {
-    throw new Error(`Remote Hyperdrive MySQL fixture health check returned ${health.status}`);
+    throw new Error(`Local Hyperdrive fixture health check returned ${health.status}`);
   }
-  const response = await fetch(endpoint, {
+  const response = await fetch(`http://127.0.0.1:${port}`, {
     method: "POST",
     signal: AbortSignal.timeout(120_000),
   });
   const body = await response.text();
   if (!response.ok || body !== '{"ok":true}') {
-    throw new Error(`Remote Hyperdrive MySQL contract failed with ${response.status}: ${body}`);
+    throw new Error(`Local Hyperdrive contract failed with ${response.status}: ${body}`);
   }
-  console.log(`Remote Hyperdrive ${mode} contract passed for ${targetName}`);
+  console.log(`Local Hyperdrive contract passed for ${targetName}`);
 } finally {
   processHandle.kill("SIGTERM");
   await Promise.race([
@@ -84,5 +96,5 @@ async function waitForReady() {
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  throw new Error(`Timed out waiting for remote Wrangler:\n${output.join("")}`);
+  throw new Error(`Timed out waiting for local Wrangler:\n${output.join("")}`);
 }

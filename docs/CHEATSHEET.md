@@ -1,25 +1,12 @@
-# Kagiroi Kotlin SQL cheat sheet
+# Kagiroi cheat sheet
 
-Kotlin syntax reference for Kagiroi.
-`// SQL:` comments show the equivalent SQL; `?` is a bound Kotlin value.
-The selected dialect decides quoting, placeholders, and dialect-specific syntax.
-
-- `Table` defines a table. The database does not change until `createTable` runs.
-- The `T` in `Column<T>` and `SqlExpression<T>` is the Kotlin read/write type.
-  `nullable()`, an outer join's `.optional`, and aggregate results produce `T?`.
-- `select`, `insertInto`, `update`, and `deleteFrom` build statements.
-  `all()`, `one()`, and `execute()` run them.
-
-The snippets omit imports and unrelated model declarations.
-Import table definitions from `dev.quwac.kagiroi.schema` and queries and DDL from
-`dev.quwac.kagiroi.sql`.
-Import dialect-specific APIs from that dialect's module.
+`// SQL:` comments show equivalent SQL; `?` is a bound Kotlin value.
+Import tables from `dev.quwac.kagiroi.schema`, queries and DDL from
+`dev.quwac.kagiroi.sql`, and dialect extensions from their dialect module.
 
 ## Tables and columns
 
-Define a table with `object : Table`.
-Columns are `NOT NULL` by default.
-Use `nullable()` only when both Kotlin and the database may hold NULL.
+Define a table with `object : Table`. Columns are `NOT NULL` by default.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -62,14 +49,12 @@ object Users : Table(
 | `.renamedFrom(previous, ...)` | Ordered migration-only physical name lineage |
 | `.transform(...)` / `.asEnum(...)` | Kotlin value-to-storage mapping |
 
-Each modifier returns the updated column.
-Keep that result in a `val` when later declarations need it.
+Modifiers return an updated column. Keep it in a `val` when later declarations need it.
 Call `default(...)` after `transform(...)`.
 
 ### Index declarations
 
-An index belongs to its `Table` definition.
-Use the column modifier for one key, and an `init` block for composite or advanced indexes.
+Use the column modifier for one key and `init` for composite or advanced indexes.
 
 ```kotlin
 object Users : Table("users") {
@@ -96,14 +81,11 @@ object Users : Table("users") {
 ```
 
 `on(...)` preserves key order and accepts columns, typed expressions, and `.asc()` / `.desc()`.
-`where(...)` declares a partial or filtered index.
-`include(...)` declares covering columns.
-`renamedFrom(...)` records ordered Index name lineage for migration planning only.
-Dialect support for expression keys, predicates, directions, and INCLUDE columns varies.
+`where(...)` creates a partial/filtered index; `include(...)` adds covering columns.
+`renamedFrom(...)` is migration-only index name lineage. Dialect support varies.
 
-`createTable(Users)` creates only the table.
-Run the table-declared indexes with `createIndexes(Users)` so no index is declared twice.
-`createIndex(...)` remains for an explicit one-off DDL operation and does not add migration metadata.
+`createTable(Users)` creates only the table. Use `createIndexes(Users)` for declared
+indexes. `createIndex(...)` is one-off DDL and has no migration metadata.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -123,15 +105,12 @@ object OrderLines : Table("order_lines") {
 }
 ```
 
-Generated columns can use columns from the same table, supported functions, arithmetic, and
-`case`.
-They cannot use subqueries, aggregates, or window functions.
-Choose `Virtual` or `Stored` explicitly.
+Generated columns may use same-table columns, supported functions, arithmetic, and `case`.
+They cannot use subqueries, aggregates, or windows. Choose `Virtual` or `Stored`.
 
 ### Custom types and enums
 
-Use a value object even when its storage representation is `String`.
-Declare every stored enum value; never depend on enum ordinals.
+Map value objects explicitly. Declare stored enum values; never use enum ordinals.
 
 ```kotlin
 data class AccountId(val value: String)
@@ -157,9 +136,8 @@ object Posts : Table("posts") {
 
 ### Primary keys, UNIQUE, foreign keys, and CHECK
 
-Put a single-column constraint on its column.
-Use `init` for multi-column or named constraints.
-Choose either a column-level or table-level primary key for a table.
+Put single-column constraints on their column. Use `init` for multi-column or named
+constraints. Choose either a column-level or table-level primary key.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -182,8 +160,8 @@ object OrganizationUsers : Table("organization_users") {
 }
 ```
 
-A foreign-key column has the target's Kotlin type and storage mapping.
-Call `nullable()` before `SET NULL`, and `default(...)` before `SET DEFAULT`.
+Foreign-key columns use the target's Kotlin type and storage mapping.
+Call `nullable()` before `SET NULL` and `default(...)` before `SET DEFAULT`.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -209,9 +187,8 @@ object OptionalOrders : Table("optional_orders") {
 }
 ```
 
-For a composite foreign key, use
-`foreignKey(local1, local2).references(remote1, remote2)`.
-Kagiroi does not create an index or a Kotlin relation object from a foreign key.
+For composite keys use `foreignKey(local1, local2).references(remote1, remote2)`.
+Foreign keys create neither an index nor a Kotlin relation object.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -235,13 +212,12 @@ object CheckedOrders : Table("checked_orders") {
 ```
 
 Use `gt`, `gte`, `lt`, `lte`, `eq`, and `neq`, not Kotlin's `>`.
-A CHECK is a Boolean expression that references at least one column of the same table.
-It cannot use aggregates, window functions, or a column from another table.
+CHECK expressions reference at least one same-table column; aggregates, windows, and
+other-table columns are invalid.
 
 ## DEFAULT, identity, and sequences
 
-Defaults fill omitted INSERT columns, identities allocate a column value, and sequences are
-independent number sources.
+Defaults fill omitted INSERT columns; identities and sequences allocate numbers.
 
 ```kotlin
 // SQL (when createTable runs):
@@ -274,17 +250,14 @@ val reservedNumber: Long = database.execute {
 }
 ```
 
-`default(value)` uses the column's conversion rules.
-An expression default has the column's type and cannot reference columns, subqueries, aggregates,
-or window functions.
-`default(null)` means `DEFAULT NULL` for a nullable column; it differs from no default.
+`default(value)` uses the column conversion. Expression defaults cannot reference columns,
+subqueries, aggregates, or windows. For nullable columns, `default(null)` is `DEFAULT NULL`.
 
 Sequences work with PostgreSQL/PGlite, MariaDB, SQL Server, and Oracle.
 SQLite/D1 and MySQL reject sequence operations.
 
 `identity()` is separate from `sequence` and is available only on `Long` columns.
-Use `startWith` for the first database-generated value and `incrementBy` for the
-difference between values:
+`startWith` sets the first value; `incrementBy` sets the increment:
 
 ```kotlin
 // SQL (PostgreSQL/PGlite):
@@ -298,10 +271,9 @@ object EventLog : Table("event_log") {
 }
 ```
 
-Leaving both options out uses the database defaults. `incrementBy = 0L` is rejected.
-PostgreSQL/PGlite and Oracle render native options; SQL Server renders its required
-seed/increment pair. MySQL/MariaDB render `startWith` as a table-level `AUTO_INCREMENT`
-option and reject `incrementBy`; SQLite/D1 reject both options.
+Omit both options for database defaults; `incrementBy = 0L` is invalid.
+PostgreSQL/PGlite and Oracle support both; SQL Server requires both. MySQL/MariaDB use
+`startWith` as table-level `AUTO_INCREMENT`; SQLite/D1 reject identity options.
 
 | Dialect | Identity | Generated columns | Independent sequence |
 | --- | --- | --- | --- |
@@ -312,13 +284,12 @@ option and reject `incrementBy`; SQLite/D1 reject both options.
 | SQL Server | `IDENTITY(seed, increment)` | `AS (...)`, optionally `PERSISTED` | Supported |
 | Oracle 23ai+ | `GENERATED BY DEFAULT AS IDENTITY`; start/increment supported | `VIRTUAL`, `MATERIALIZED` | Supported |
 
-`computed()` is a logical read-only column and has no physical generated-column DDL.
-Generated columns are read-only; `Virtual` or `Stored` must be explicit.
+`computed()` is a logical read-only column with no generated-column DDL.
+Generated columns are read-only and require `Virtual` or `Stored`.
 
 ## SELECT
 
-Use `select(...)` for result columns and expressions, and `from(...)` for their source rows.
-`where` filters rows, `orderBy` sorts the result, and `limit` and `offset` restrict its size.
+`select(...)` defines results, `from(...)` sources, `where` filters, and `orderBy` sorts.
 
 ```kotlin
 // SQL: SELECT id, email
@@ -355,8 +326,7 @@ val summaries = database.select(Users.id, Users.email)
 | `.one()` | Exactly one row; fails for zero or multiple rows |
 | `.oneOrNull()` | `null` for zero rows; fails for multiple rows |
 
-Read a row with its selected column or alias, not a string name.
-`row[Users.id]` is `Uuid`; `row[expressionAlias]` has the aliased expression's type.
+Read rows by selected column or alias, not string name. `row[Users.id]` is `Uuid`.
 
 | SQL concept | Kagiroi |
 | --- | --- |
@@ -410,15 +380,13 @@ val totals = database.select(Orders.organizationId, orderCount, totalAmount)
     .all()
 ```
 
-`GROUP BY` groups rows with the same values; an aggregate returns one value per group.
-In an aggregate query, every selected table value must be a group key or an aggregate input.
-`count` is `Long`. `sum`, `avg`, `min`, and `max` are normally nullable because an empty
-input has no value.
+Selected table values in aggregate queries must be group keys or aggregate inputs.
+`count` is `Long`; `sum`, `avg`, `min`, and `max` are normally nullable.
 
 ### PostgreSQL-only DISTINCT ON and ILIKE
 
-Import `dev.quwac.kagiroi.postgres.distinctOn` or `ilike` to opt into PostgreSQL/PGlite syntax.
-`DISTINCT ON` keeps one row per key, selected by `ORDER BY`; start the ordering with the distinct key.
+Import `dev.quwac.kagiroi.postgres.distinctOn` or `ilike` for PostgreSQL/PGlite.
+Start `DISTINCT ON` ordering with its key.
 
 ```kotlin
 // SQL (PostgreSQL/PGlite): SELECT DISTINCT ON (organization_id) organization_id, id, email
@@ -438,10 +406,8 @@ val matchingUsers = database.select(Users.id)
     .all()
 ```
 
-`isNotDistinctFrom` treats two SQL NULL values as equal; `isDistinctFrom` treats one NULL and one
-non-NULL value as different.
-They use PostgreSQL/PGlite's `IS [NOT] DISTINCT FROM`, SQLite/D1's `IS` / `IS NOT`, and
-MySQL/MariaDB's null-safe equality operator.
+`isNotDistinctFrom` treats two NULLs as equal. It renders `IS [NOT] DISTINCT FROM`,
+`IS` / `IS NOT`, or the MySQL/MariaDB null-safe equality operator.
 
 ```kotlin
 // SQL (PostgreSQL/PGlite): SELECT id FROM users
@@ -452,9 +418,8 @@ val exactDisplayName = database.select(Users.id)
     .all()
 ```
 
-Common functions are `lower`, `upper`, `trim`, `length`, `substring`, `replace`,
+Common functions include `lower`, `upper`, `trim`, `length`, `substring`, `replace`,
 `concat`, `coalesce`, `nullIf`, `abs`, `round`, `floor`, `ceil`, `power`, and `sqrt`.
-Use `.alias("name")` when a function result must be read from a row.
 
 ```kotlin
 // SQL: SELECT users.id, LOWER(users.email) AS normalized_email,
@@ -476,16 +441,13 @@ val row = database.select(Users.id, normalizedEmail, displayName, category)
     .one()
 ```
 
-`literal(value)` makes a bound parameter.
-`cast(expr, stringType())` or `expr.castTo(stringType())` makes a typed CAST explicit.
-For JSON, regular expressions, spatial values, and other APIs without a common surface, use a
-dialect module or parameterized raw SQL.
+`literal(value)` binds a parameter. Use `cast(expr, stringType())` or
+`expr.castTo(stringType())` for a typed CAST. Use a dialect module or parameterized raw SQL
+for APIs without a common surface.
 
 ### ROLLUP, CUBE, and GROUPING SETS
 
-These GROUP BY elements produce subtotals and grand totals.
-Kagiroi does not rewrite them to `UNION ALL`.
-A subtotal can make a normally non-null group key SQL NULL, so select it through `.optional`.
+Subtotals can turn a non-null group key into SQL NULL; select it through `.optional`.
 
 ```kotlin
 // SQL: SELECT country, city, SUM(amount) AS total
@@ -512,15 +474,12 @@ val explicitRows = database.select(country, Sales.product.optional, total)
     .all()
 ```
 
-`grouping(expr)` distinguishes a data NULL from a subtotal NULL with `0` / `1`.
-SQLite/D1 reject advanced grouping.
-MySQL accepts part of `rollup`; MariaDB accepts only direct-expression `rollup`.
+`grouping(expr)` distinguishes data and subtotal NULL with `0` / `1`.
+SQLite/D1 reject advanced grouping; MySQL and MariaDB support limited `rollup`.
 
 ### JOIN
 
-A JOIN combines two row sets by a condition.
-An INNER JOIN keeps matching pairs; a LEFT JOIN retains its left row and makes the missing right
-side NULL.
+Select columns from an outer join's missing side through `.optional`.
 
 ```kotlin
 // SQL: SELECT users.id, organizations.name
@@ -536,9 +495,7 @@ val rows = database.select(Users.id, organizationName)
 val name: String? = rows.first()[organizationName]
 ```
 
-Select columns from a possibly missing outer-join side through `.optional`.
-That is the right side of LEFT JOIN, the left side of RIGHT JOIN, and both sides of FULL OUTER JOIN.
-Kagiroi does not decode a SQL NULL as a non-null Kotlin value.
+This is the right side of LEFT JOIN, left side of RIGHT JOIN, and both sides of FULL OUTER JOIN.
 
 | SQL | Kagiroi |
 | --- | --- |
@@ -559,13 +516,11 @@ val query = select(user[Users.id], organization[Organizations.name])
     }
 ```
 
-`USING` columns need the same output name and compatible Kotlin and storage types.
-SQL Server does not support `USING`, and Kagiroi does not rewrite it to `ON`.
-MySQL and MariaDB do not support FULL OUTER JOIN.
+`USING` requires matching output names and compatible Kotlin and storage types.
+SQL Server rejects `USING`; MySQL and MariaDB reject FULL OUTER JOIN.
 
-Use `alias(name)` when a table appears more than once, and read a column as `alias[Users.id]`.
-For a derived relation that uses rows already introduced to its left, use `lateral(name) { ... }`
-with `.crossJoinLateral(...)` or `.leftJoinLateral(...)`.
+Use `alias(name)` for repeated tables. For a relation that reads rows already to its left, use
+`lateral(name) { ... }` with `.crossJoinLateral(...)` or `.leftJoinLateral(...)`.
 
 ```kotlin
 // SQL: SELECT users.id, latest_order.id
@@ -585,13 +540,12 @@ val rows = database.select(Users.id, latestOrder[Orders.id])
     .all()
 ```
 
-SQLite/D1 and MariaDB do not support LATERAL.
-SQL Server and Oracle render `CROSS APPLY` and `OUTER APPLY`, respectively.
+SQLite/D1 and MariaDB reject LATERAL. SQL Server and Oracle render `CROSS APPLY` and
+`OUTER APPLY`.
 
 ### Window functions
 
-A window function computes a rank or running value without collapsing its input rows.
-The `orderBy` inside `OVER (...)` is not the final result order.
+The `orderBy` inside `OVER (...)` is independent of final result ordering.
 
 ```kotlin
 // SQL: SELECT id,
@@ -635,10 +589,8 @@ val analytics = database.select(Orders.id, rowNumber, runningTotal, previousAmou
 | First, last, or Nth value | `firstValue(x)`, `lastValue(x)`, `nthValue(x, n)` | Input type; Nth is `T?` |
 | Aggregate in a window | `.over { ... }` on `count`, `sum`, `avg`, `min`, or `max` | Aggregate type |
 
-`lag` and `lead` require `orderBy`.
-Use `.nullsFirst()` or `.nullsLast()` on an order inside `over { ... }` when its input is nullable.
-The default frame for `lastValue` and `nthValue` can end at the current row, so specify a
-full-partition frame when that is needed.
+`lag` and `lead` require `orderBy`. For nullable input, use `.nullsFirst()` or `.nullsLast()`.
+Specify a full-partition frame when `lastValue` or `nthValue` must see later rows.
 
 ```kotlin
 // SQL: SELECT LAST_VALUE(amount) OVER (
@@ -664,14 +616,12 @@ val peerTotal = sum(Orders.amount)
     .alias("peer_total")
 ```
 
-`ROWS` counts physical rows, `RANGE` counts peer rows with equal sort values, and `GROUPS`
-counts peer groups.
-Portable `range` supports only no-offset boundaries.
-`groups`, frame exclusions, named windows, and `nthValue` vary by dialect.
-Unsupported forms fail before execution; they are not translated to another SQL shape.
+`ROWS` counts rows, `RANGE` peers with equal sort values, and `GROUPS` peer groups.
+Portable `range` has no offsets. `groups`, exclusions, named windows, and `nthValue` vary
+by dialect and unsupported forms fail before execution.
 
-You cannot use a window result directly in `where`, `having`, or a JOIN condition.
-Move it into `asTable` or a CTE, then filter from the outer query.
+Window results cannot appear directly in `where`, `having`, or JOIN conditions. Use
+`asTable` or a CTE and filter outside.
 
 ```kotlin
 // SQL: SELECT id FROM (
@@ -686,15 +636,13 @@ val rankedRows = database.select(ranked[Orders.id])
     .all()
 ```
 
-`RESPECT NULLS` and `IGNORE NULLS` are dialect-module extensions.
-MySQL exposes `respectNulls()`; SQL Server 2022+ and Oracle expose both.
-The common API leaves NULL treatment unspecified elsewhere.
+`RESPECT NULLS` and `IGNORE NULLS` are dialect extensions: MySQL has `respectNulls()`;
+SQL Server 2022+ and Oracle have both.
 
 ### WITHIN GROUP
 
-`percentileCont`, `percentileDisc`, `mode`, and `hypotheticalRank` are aggregates separate
-from window `OVER`.
-They come from the PostgreSQL/PGlite and Oracle modules.
+`percentileCont`, `percentileDisc`, `mode`, and `hypotheticalRank` are PostgreSQL/PGlite
+and Oracle aggregates, separate from window `OVER`.
 
 ```kotlin
 // SQL: SELECT PERCENTILE_CONT(?) WITHIN GROUP (ORDER BY amount ASC) AS median
@@ -704,16 +652,14 @@ val median = percentileCont(0.5)
 ```
 
 `percentileCont` is nullable `Double`; `percentileDisc` and `mode` have the ordered
-expression's nullable type.
-MySQL, MariaDB, SQLite/D1, and SQL Server have no common WITHIN GROUP API.
+expression's nullable type. Other dialects have no common WITHIN GROUP API.
 
 ## Combine queries, subqueries, and CTEs
 
 ### UNION, INTERSECT, and EXCEPT
 
-Two queries must select the same number of values with the same Kotlin types, storage mappings, and
-nullability in the same order.
-After a set operation, read rows and order results with the left projection.
+Set operands must match count, Kotlin type, storage mapping, and nullability in order.
+Use the left projection for result rows and ordering.
 
 ```kotlin
 val userId = Users.id.alias("user_id")
@@ -736,14 +682,12 @@ val commonUsers = currentUsers.intersect(archivedUsers)
 val onlyCurrentUsers = currentUsers.except(archivedUsers)
 ```
 
-`union`, `intersect`, and `except` remove duplicates; `unionAll` retains them.
-`intersectAll` and `exceptAll` are duplicate-preserving operations for supported dialects.
-Kagiroi does not emulate an unavailable set operation.
+`union`, `intersect`, and `except` remove duplicates; their `All` forms retain them where supported.
 
 ### scalar, EXISTS, and derived tables
 
-A single-column query can become a scalar subquery through `scalar()`.
-Zero rows become SQL NULL; multiple rows are a database error.
+`scalar()` turns a single-column query into a scalar subquery. Zero rows are SQL NULL;
+multiple rows are a database error.
 
 ```kotlin
 // SQL: SELECT users.id,
@@ -771,9 +715,8 @@ val rows = database.select(Users.id, latestAmount)
     .all()
 ```
 
-`asTable("name")` makes a query result the FROM source of the next query.
-Refer to a selected column or alias as `derived[projection]`.
-There is no string-based column lookup.
+`asTable("name")` makes a query result a source. Refer to projections as
+`derived[projection]`; string lookup is unavailable.
 
 ```kotlin
 // SQL: SELECT active_users.id, active_users.normalized_email
@@ -792,9 +735,7 @@ val row = database.select(activeUsers[Users.id], activeUsers[normalizedEmail])
 
 ### CTE
 
-A CTE is a named temporary query result.
-Create it with `asCte` and use it only inside its `with(...)` block.
-Pass dependencies first.
+Create CTEs with `asCte` and use them only inside `with(...)`. Pass dependencies first.
 
 ```kotlin
 // SQL: WITH active_users AS (
@@ -815,15 +756,14 @@ val rows = with(activeUsers) {
 }.all()
 ```
 
-The CTE keeps its source query's types and projection handles.
-A non-recursive CTE body is SELECT-only. Writable CTEs, forward references, and materialization
-hints are unavailable.
-`with(...)` can also scope a typed UPDATE, DELETE, or INSERT ... SELECT.
+CTEs keep source types and projection handles. Non-recursive bodies are SELECT-only;
+writable bodies, forward references, and materialization hints are unavailable.
+`with(...)` also scopes typed UPDATE, DELETE, and INSERT ... SELECT.
 
 ### Recursive CTE
 
-`recursiveCte` joins an anchor and recursive member with `UNION ALL`.
-The member places the callback's `self` directly once as a FROM or JOIN source.
+`recursiveCte` joins its anchor and member with `UNION ALL`; the member uses callback
+`self` once as a FROM or JOIN source.
 
 ```kotlin
 // SQL: WITH RECURSIVE numbers(n) AS (
@@ -844,19 +784,14 @@ val rows = with(numbers) {
 }.all()
 ```
 
-The anchor determines result-column types, nullability, and names.
-The member must return exactly the same types and storage mappings in every position.
-A recursive member cannot use DISTINCT, GROUP BY, HAVING, aggregates, windows, ORDER BY, LIMIT,
-or OFFSET.
-SQLite/D1, PostgreSQL/PGlite, MySQL, and MariaDB render `WITH RECURSIVE`; SQL Server and Oracle
-render `WITH`.
+The anchor determines column types, nullability, and names. Members must match every position.
+Recursive members cannot use DISTINCT, GROUP BY, HAVING, aggregates, windows, ORDER BY, LIMIT,
+or OFFSET. SQL Server and Oracle render `WITH`; other supported dialects render `WITH RECURSIVE`.
 
 ## INSERT, UPDATE, and DELETE
 
-`set` accepts the writable column's Kotlin type.
-Each INSERT row sets the same columns and sets at least one.
-`deleteFrom` requires `where` to prevent an accidental full deletion.
-Use `deleteAllFrom` explicitly to delete every row.
+`set` accepts the writable column's Kotlin type. INSERT rows use the same non-empty column set.
+`deleteFrom` requires `where`; use `deleteAllFrom` for every row.
 
 ```kotlin
 // SQL: INSERT INTO users (id, email, display_name)
@@ -895,7 +830,7 @@ database.deleteFrom(Users)
 database.deleteAllFrom(Users).execute()
 ```
 
-For a dynamic multi-row INSERT, use `NonEmptyList` to make an empty INSERT impossible by type.
+For dynamic multi-row INSERT, use `NonEmptyList`.
 
 ```kotlin
 val users = nonEmptyListOf(
@@ -913,14 +848,12 @@ database.insertInto(Users)
     .execute()
 ```
 
-For an arbitrary `Iterable`, decide how to handle empty input first, for example with
-`NonEmptyList.from(values) ?: return`.
+For arbitrary `Iterable`, handle empty input first: `NonEmptyList.from(values) ?: return`.
 
 ### INSERT ... SELECT and write results
 
-Target columns and source projections must match by position in type, storage mapping, and
-nullability.
-One INSERT cannot mix VALUES and a SELECT source.
+Target columns and source projections must match position, type, storage mapping, and nullability.
+One INSERT cannot mix VALUES and SELECT.
 
 ```kotlin
 // SQL: WITH archived_users AS (
@@ -945,14 +878,12 @@ val returnedRow = database.insertInto(Users)
     .one()
 ```
 
-SQLite, D1, PostgreSQL, and PGlite use `returning(...)`.
-SQL Server has `output(...)`; Oracle has `returningInto(...)`.
-MySQL and MariaDB return the driver's `affectedRows` from `.execute()`.
+SQLite/D1 and PostgreSQL/PGlite use `returning(...)`; SQL Server uses `output(...)`; Oracle
+uses `returningInto(...)`. MySQL/MariaDB return driver `affectedRows` from `.execute()`.
 
 ### Dialect-specific INSERT conflict handling
 
-There is no common `upsert`.
-Databases differ in conflict-target selection and in which row an update may reference.
+There is no common `upsert`; conflict targets and update-row references differ by dialect.
 
 ```kotlin
 // SQL (PostgreSQL): INSERT INTO users (id, email, name) VALUES (?, ?, ?)
@@ -990,10 +921,9 @@ database.insertInto(Counters)
     .execute()
 ```
 
-PostgreSQL also offers `onConflictConstraint(name)` for a named constraint.
-SQLite/D1 permits one conflict clause per INSERT.
-MySQL/MariaDB take no conflict target and follow their server's duplicate-key rules.
-Use raw SQL for SQL Server/Oracle MERGE, multiple SQLite conflict clauses, and REPLACE.
+PostgreSQL also has `onConflictConstraint(name)`. SQLite/D1 permit one conflict clause;
+MySQL/MariaDB take no target. Use raw SQL for SQL Server/Oracle MERGE, multiple SQLite clauses,
+and REPLACE.
 
 ### D1 batch
 
@@ -1012,8 +942,7 @@ d1Database.batch(statements)
 
 ## Application schema projection
 
-`schema(...)` declares the explicit table roots managed by schema-aware external tools. It is a
-Kagiroi API; it does not define a second table DSL or persist a schema snapshot.
+`schema(...)` declares table roots for schema-aware external tools.
 
 ```kotlin
 // import dev.quwac.kagiroi.schema.schema
@@ -1027,15 +956,12 @@ val appSchema = schema(Users)
 val projectionJson = appSchema.project().encode()
 ```
 
-The versioned Schema Projection contains the current physical objects and separately records
-`renamedFrom(...)` lineage. It is a deterministic integration boundary: external tools consume it
-without reading Kagiroi's runtime Table, Column, or expression implementation classes. The
-projection itself neither connects to a database nor generates SQL.
+The versioned projection contains physical objects and `renamedFrom(...)` lineage. It neither
+connects to a database nor generates SQL.
 
 ## Creating tables, indexes, and ALTER TABLE
 
-`database.execute { ... }` executes DDL immediately in source order.
-It does not start a transaction.
+`database.execute { ... }` runs DDL in source order and does not start a transaction.
 
 ```kotlin
 // SQL: CREATE TABLE IF NOT EXISTS users (
@@ -1058,8 +984,8 @@ database.execute {
 }
 ```
 
-`createIndexes(Users)` uses the index metadata declared on `Users`, in declaration order.
-An unavailable option throws `UnsupportedDdlOperation` during rendering.
+`createIndexes(Users)` follows `Users` declaration order. Unsupported options throw
+`UnsupportedDdlOperation` during rendering.
 
 ```kotlin
 object UsersMigration : Table("users") {
@@ -1081,11 +1007,9 @@ database.execute(
 database.execute(alterTable(Users) { renameColumn(Users.email, "login_email") })
 ```
 
-`alterTable` preserves the specified order.
-Put `renameColumn` and `renameTable` last in their block.
-SQLite/D1 do not rebuild a table, so only direct SQLite ALTER operations are available.
-Use raw SQL for SQL Server default-constraint lookup and MySQL/MariaDB changes that would require
-reconstructing a complete column definition.
+`alterTable` preserves its operation order; place `renameColumn` and `renameTable` last.
+SQLite/D1 allow only native ALTER operations. Use raw SQL for SQL Server default-constraint lookup
+and MySQL/MariaDB changes requiring a full column definition.
 
 ## Transactions, savepoints, raw SQL, and errors
 
@@ -1112,17 +1036,11 @@ database.executeRaw("UPDATE users SET display_name = ? WHERE id = ?", listOf("Al
 val rawRows = database.queryRaw("SELECT id FROM users WHERE id = ?", listOf(userId))
 ```
 
-`transaction` commits on normal completion and rolls back on an exception.
-Nested transactions are unavailable. Use `savepoint` inside a transaction for partial rollback.
-D1 does not support interactive transactions or savepoints.
+`transaction` commits normally and rolls back on exception. Use `savepoint` for partial
+rollback; nested transactions and D1 interactive transactions are unavailable.
 
-For SQL outside the common API, use `executeRaw(sql, parameters)` or
-`queryRaw(sql, parameters)`.
-Pass values in `parameters`; do not interpolate them into the SQL string.
-
-When a driver can identify a rule failure, it reports `ConstraintViolation` with a
-`ConstraintKind` such as `UNIQUE`, `FOREIGN_KEY`, `NOT_NULL`, or `CHECK`.
-Kotlin types do not establish the validity of existing database rows or external input.
+Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for complete parameterized SQL.
+Drivers may report `ConstraintViolation` with `UNIQUE`, `FOREIGN_KEY`, `NOT_NULL`, or `CHECK`.
 
 ## Dialect guide
 
@@ -1140,32 +1058,19 @@ Kotlin types do not establish the validity of existing database rows or external
 | `returning` | SQLite/D1, PostgreSQL/PGlite; SQL Server has `output`; Oracle has `returningInto` |
 | Sequence | PostgreSQL/PGlite, MariaDB, SQL Server, Oracle |
 
-The common API does not emulate behavior that differs across dialects.
-Choose the dialect-specific API, or raw SQL when the dialect does not support the feature.
+Use dialect-specific APIs or raw SQL for features outside this common surface.
 
 ## Raw SQL boundary
 
-Kagiroi does not accept SQL fragments as expressions.
-Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for a complete,
-parameterized statement outside this API.
+Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for complete parameterized
+statements. SQL fragments are not expressions.
 
-- **SELECT and expressions:** simple `CASE`, implicit `ELSE NULL`, `QUALIFY`, `FROM LAST`, and
-  vendor-specific statistical or percentile syntax.
-- **JOIN and relation syntax:** `NATURAL JOIN`, automatic join-condition discovery, table functions,
-  RIGHT/FULL LATERAL, automatic LATERAL/APPLY detection, and DML APPLY.
-- **CTEs:** writable CTE bodies, forward references, materialization hints, recursive `UNION` distinct,
-  mutual recursion, `SEARCH`, `CYCLE`, automatic cycle detection, and SQL Server `MAXRECURSION`.
-- **DML:** `DELETE ... USING`, target correlation, a generic `upsert`, `MERGE`, `REPLACE`,
-  `INSERT IGNORE`, catalog lookup, retry, and application-side emulation.
-- **Generic DDL:** index methods and operator classes, index-level `NULLS FIRST` / `NULLS LAST`, prefix indexes,
-  full-text, spatial, bitmap, columnstore, and other broad vendor options.
-
-- `intersectAll()` and `exceptAll()` are rejected by SQL Server and SQLite/D1.
-- MariaDB rejects the default argument of `lag` and `lead`.
-- MariaDB rejects CTE-scoped DML. Oracle accepts it only for INSERT ... SELECT, not UPDATE or DELETE.
-- MySQL and MariaDB expose `ON DUPLICATE KEY UPDATE`; they do not share PostgreSQL/SQLite `ON CONFLICT`.
+Common omissions include vendor-specific query syntax, writable CTE bodies, `MERGE`, `REPLACE`,
+automatic retries, and vendor index options. `intersectAll()` and `exceptAll()` are unavailable on
+SQL Server and SQLite/D1; MariaDB rejects `lag`/`lead` defaults and CTE-scoped DML. Oracle scopes
+CTEs to INSERT ... SELECT only. MySQL/MariaDB use `ON DUPLICATE KEY UPDATE`, not `ON CONFLICT`.
 
 ## More detail
 
-- [Type mappings](type-mappings.md): Kotlin types and database storage mappings.
+- [Kagiroi type mappings](TYPE_MAPPINGS.md): Kotlin types and database storage mappings.
 - [Kagiroi README](../README.md): drivers, supported hosts, and Typed DDL scope.

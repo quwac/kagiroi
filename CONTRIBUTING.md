@@ -1,48 +1,72 @@
 # Contributing to Kagiroi
 
-Kagiroi is a Kotlin Multiplatform database toolkit. Its public APIs preserve
-database-specific semantics through explicit types and dialect-owned rendering.
+Kagiroi is a Kotlin Multiplatform database toolkit for Kotlin/JS and Kotlin/Wasm.
 
 ## Setup
 
 ```sh
 mise trust
-mise install --locked java bun node hk pkl lychee gh zizmor betterleaks \\
+mise install --locked java bun node hk pkl lychee gh zizmor betterleaks \
     github:github/gh-actions-lock github:jdx/jactionlint
 mise run setup
 ```
 
-`mise run deps` installs the locked JavaScript dependencies used by the quality
-checks and database contracts.
+`mise run setup` installs locked JavaScript dependencies and registers the `hk`
+Git hooks.
 
 ## Checks
 
-Run quality checks in a mise-activated shell. Without activation, prefix a
-command with `mise exec --`.
+Run commands from a mise-activated shell. Otherwise prefix a command with
+`mise exec --`.
 
-```sh
-hk check --all
-hk check --all --profile ci
-mise run test:kotlin
-mise run test:pglite:bun
-mise run test:compile
-```
+| Change | Command |
+| --- | --- |
+| Formatting, Markdown, links, Actions, and static checks | `hk check --all` |
+| The CI-only online checks | `hk check --all --profile ci` |
+| All local test lanes | `mise run test` |
+| Kotlin unit tests | `mise run test:kotlin` |
+| PGlite contracts on Bun | `mise run test:pglite:bun` |
+| Positive and negative compiler fixtures | `mise run test:compile` |
+| One README connection target contract | `mise run test:connection-target <target>` |
+| Testcontainers-backed connection-target contracts | `mise run test:containers` |
 
-`mise run test:containers` runs disposable PostgreSQL, MySQL, MariaDB, SQL
-Server, and Oracle compatibility contracts through Testcontainers. It requires a
-working container runtime.
+`mise run test` runs the Kotlin, PGlite, container, and compiler-fixture lanes.
+`mise run test:containers` starts disposable database containers through Testcontainers
+and requires a working container runtime.
 
-Remote Hyperdrive contracts are opt-in because they require configured Cloudflare
-bindings:
+Run one connection target with `mise run test:connection-target <target>`. The
+target names mirror the README: `sqlite-inmemory`, `sqlite-file`, `d1`,
+`postgres-direct`, `postgres-hyperdrive`, `pglite`, `mysql-direct`,
+`mysql-hyperdrive`, `mariadb-direct`, `mariadb-hyperdrive`, `sqlserver-direct`,
+and `oracle-direct`. `test:containers` runs its eight container-backed targets.
 
-```sh
-mise run test:hyperdrive:remote
-mise run test:hyperdrive:mysql:remote
-mise run test:hyperdrive:mariadb:remote
-```
+`hk fix --all` applies supported fixes. The pre-commit hook checks staged files
+without fixing or staging them.
 
-`hk fix --all` applies supported formatting fixes. Pre-commit checks staged code
-without automatically fixing or staging it.
+## Optional database contracts
+
+`mise run test:kotlin` includes direct-driver contracts when their environment
+variables are present. Tests without their required variables skip themselves.
+
+| Database or provider | Environment variables |
+| --- | --- |
+| PostgreSQL, Neon, Supabase, Aurora PostgreSQL | `KAGIROI_POSTGRES_TEST_URL`, `KAGIROI_NEON_POSTGRES_TEST_URL`, `KAGIROI_SUPABASE_POSTGRES_TEST_URL`, `KAGIROI_AURORA_POSTGRES_TEST_URL` |
+| MySQL, PlanetScale, Aurora MySQL | `KAGIROI_MYSQL_TEST_URL`, `KAGIROI_PLANETSCALE_MYSQL_TEST_URL`, `KAGIROI_AURORA_MYSQL_TEST_URL` |
+| MariaDB | `KAGIROI_MARIADB_TEST_URL` |
+| SQL Server | `KAGIROI_SQLSERVER_TEST_HOST`, `KAGIROI_SQLSERVER_TEST_PORT`, `KAGIROI_SQLSERVER_TEST_DATABASE`, `KAGIROI_SQLSERVER_TEST_USER`, `KAGIROI_SQLSERVER_TEST_PASSWORD` |
+| Oracle | `KAGIROI_ORACLE_TEST_CONNECT_STRING`, `KAGIROI_ORACLE_TEST_USER`, `KAGIROI_ORACLE_TEST_PASSWORD` |
+
+`mise run test:containers` clears those variables and supplies disposable
+container connection details instead.
+
+## Local Hyperdrive Worker contracts
+
+The `postgres-hyperdrive`, `mysql-hyperdrive`, and `mariadb-hyperdrive` targets
+start generated JS and Wasm Workers with Wrangler's local Miniflare runtime. The runner supplies the
+Testcontainers connection string through
+`CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`; no Cloudflare account,
+Hyperdrive ID, or remote database is used. This does not test Hyperdrive pooling or
+query caching.
 
 ## Dependencies and GitHub Actions
 

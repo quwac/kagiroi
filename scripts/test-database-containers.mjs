@@ -1,3 +1,19 @@
+/**
+ * Runs Testcontainers-backed connection-target contract tests.
+ *
+ * Usage:
+ *   node scripts/test-database-containers.mjs [target...]
+ *
+ * Arguments:
+ *   target  Optional. One or more of: postgres-direct, postgres-hyperdrive,
+ *           mysql-direct, mysql-hyperdrive, mariadb-direct,
+ *           mariadb-hyperdrive, sqlserver-direct, oracle-direct.
+ *           Omit all targets to run every target above.
+ *
+ * Examples:
+ *   mise run test:containers
+ *   mise run test:containers postgres-direct postgres-hyperdrive
+ */
 import { spawn } from "node:child_process";
 
 import { MariaDbContainer } from "@testcontainers/mariadb";
@@ -6,7 +22,16 @@ import { MySqlContainer } from "@testcontainers/mysql";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
-const DATABASES = ["postgres", "mysql", "mariadb", "sqlserver", "oracle"];
+const CONNECTION_TARGETS = [
+  "postgres-direct",
+  "postgres-hyperdrive",
+  "mysql-direct",
+  "mysql-hyperdrive",
+  "mariadb-direct",
+  "mariadb-hyperdrive",
+  "sqlserver-direct",
+  "oracle-direct",
+];
 const TEST_DATABASE = "kagiroi";
 const TEST_USER = "kagiroi";
 const TEST_PASSWORD = ["Kagiroi", "!", "Passw0rd"].join("");
@@ -32,11 +57,13 @@ const EXTERNAL_DATABASE_ENVIRONMENT_NAMES = [
 ];
 
 const selections = process.argv.slice(2);
-const requestedDatabases = selections.length === 0 ? DATABASES : selections;
+const requestedTargets = selections.length === 0 ? CONNECTION_TARGETS : selections;
 
-for (const database of requestedDatabases) {
-  if (!DATABASES.includes(database)) {
-    throw new Error(`Unknown database '${database}'. Expected one of: ${DATABASES.join(", ")}.`);
+for (const target of requestedTargets) {
+  if (!CONNECTION_TARGETS.includes(target)) {
+    throw new Error(
+      `Unknown connection target '${target}'. Expected one of: ${CONNECTION_TARGETS.join(", ")}.`,
+    );
   }
 }
 
@@ -78,6 +105,29 @@ async function runGradleTask(task, environment) {
   });
 }
 
+async function runNodeScript(script, arguments_, environment) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [script, ...arguments_], {
+      cwd: process.cwd(),
+      env: { ...process.env, ...environment },
+      stdio: "inherit",
+    });
+
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `${script} stopped with ${signal == null ? `exit code ${code}` : `signal ${signal}`}.`,
+        ),
+      );
+    });
+  });
+}
+
 async function withContainer(name, start, run) {
   console.log(`\n== ${name} ==`);
   const container = await start();
@@ -89,77 +139,80 @@ async function withContainer(name, start, run) {
   }
 }
 
-async function testPostgres() {
-  await withContainer(
-    "PostgreSQL",
-    () =>
-      new PostgreSqlContainer("postgres:17-alpine")
-        .withDatabase(TEST_DATABASE)
-        .withUsername(TEST_USER)
-        .withPassword(TEST_PASSWORD)
-        .start(),
-    (container) =>
-      runGradle(
-        [
-          ":kagiroi-postgres-node-driver:jsNodeTest",
-          ":kagiroi-postgres-node-driver:wasmJsNodeTest",
-          ":kagiroi-postgres-hyperdrive-driver:jsNodeTest",
-          ":kagiroi-postgres-hyperdrive-driver:wasmJsNodeTest",
-        ],
-        { KAGIROI_POSTGRES_TEST_URL: container.getConnectionUri() },
-      ),
+function startPostgresContainer() {
+  return new PostgreSqlContainer("postgres:17-alpine")
+    .withDatabase(TEST_DATABASE)
+    .withUsername(TEST_USER)
+    .withPassword(TEST_PASSWORD)
+    .start();
+}
+
+async function testPostgresDirect() {
+  await withContainer("PostgreSQL, direct", startPostgresContainer, (container) =>
+    runGradle(
+      [":kagiroi-postgres-node-driver:jsNodeTest", ":kagiroi-postgres-node-driver:wasmJsNodeTest"],
+      { KAGIROI_POSTGRES_TEST_URL: container.getConnectionUri() },
+    ),
   );
 }
 
-async function testMySql() {
-  await withContainer(
-    "MySQL",
-    () =>
-      new MySqlContainer("mysql:8.4")
-        .withDatabase(TEST_DATABASE)
-        .withUsername(TEST_USER)
-        .withUserPassword(TEST_PASSWORD)
-        .withRootPassword(TEST_PASSWORD)
-        .start(),
-    (container) =>
-      runGradle(
-        [
-          ":kagiroi-mysql-node-driver:jsNodeTest",
-          ":kagiroi-mysql-node-driver:wasmJsNodeTest",
-          ":kagiroi-mysql-hyperdrive-driver:jsNodeTest",
-          ":kagiroi-mysql-hyperdrive-driver:wasmJsNodeTest",
-        ],
-        { KAGIROI_MYSQL_TEST_URL: container.getConnectionUri() },
-      ),
+async function testPostgresHyperdrive() {
+  await withContainer("PostgreSQL through local Hyperdrive", startPostgresContainer, (container) =>
+    runPostgresHyperdriveWorkerContracts(container.getConnectionUri()),
   );
 }
 
-async function testMariaDb() {
-  await withContainer(
-    "MariaDB",
-    () =>
-      new MariaDbContainer("mariadb:11.4")
-        .withDatabase(TEST_DATABASE)
-        .withUsername(TEST_USER)
-        .withUserPassword(TEST_PASSWORD)
-        .withRootPassword(TEST_PASSWORD)
-        .start(),
-    (container) =>
-      runGradle(
-        [
-          ":kagiroi-mysql-node-driver:jsNodeTest",
-          ":kagiroi-mysql-node-driver:wasmJsNodeTest",
-          ":kagiroi-mysql-hyperdrive-driver:jsNodeTest",
-          ":kagiroi-mysql-hyperdrive-driver:wasmJsNodeTest",
-        ],
-        { KAGIROI_MARIADB_TEST_URL: mysqlUrl(container.getConnectionUri()) },
-      ),
+function startMySqlContainer() {
+  return new MySqlContainer("mysql:8.4")
+    .withDatabase(TEST_DATABASE)
+    .withUsername(TEST_USER)
+    .withUserPassword(TEST_PASSWORD)
+    .withRootPassword(TEST_PASSWORD)
+    .start();
+}
+
+async function testMySqlDirect() {
+  await withContainer("MySQL, direct", startMySqlContainer, (container) =>
+    runGradle(
+      [":kagiroi-mysql-node-driver:jsNodeTest", ":kagiroi-mysql-node-driver:wasmJsNodeTest"],
+      { KAGIROI_MYSQL_TEST_URL: container.getConnectionUri() },
+    ),
   );
 }
 
-async function testSqlServer() {
+async function testMySqlHyperdrive() {
+  await withContainer("MySQL through local Hyperdrive", startMySqlContainer, (container) =>
+    runMySqlHyperdriveWorkerContracts(container.getConnectionUri(), "mysql"),
+  );
+}
+
+function startMariaDbContainer() {
+  return new MariaDbContainer("mariadb:11.4")
+    .withDatabase(TEST_DATABASE)
+    .withUsername(TEST_USER)
+    .withUserPassword(TEST_PASSWORD)
+    .withRootPassword(TEST_PASSWORD)
+    .start();
+}
+
+async function testMariaDbDirect() {
+  await withContainer("MariaDB, direct", startMariaDbContainer, (container) =>
+    runGradle(
+      [":kagiroi-mysql-node-driver:jsNodeTest", ":kagiroi-mysql-node-driver:wasmJsNodeTest"],
+      { KAGIROI_MARIADB_TEST_URL: mysqlUrl(container.getConnectionUri()) },
+    ),
+  );
+}
+
+async function testMariaDbHyperdrive() {
+  await withContainer("MariaDB through local Hyperdrive", startMariaDbContainer, (container) =>
+    runMySqlHyperdriveWorkerContracts(mysqlUrl(container.getConnectionUri()), "mariadb"),
+  );
+}
+
+async function testSqlServerDirect() {
   await withContainer(
-    "SQL Server",
+    "SQL Server, direct",
     () =>
       new MSSQLServerContainer(SQLSERVER_IMAGE)
         .acceptLicense()
@@ -184,9 +237,9 @@ async function testSqlServer() {
   );
 }
 
-async function testOracle() {
+async function testOracleDirect() {
   await withContainer(
-    "Oracle Database Free",
+    "Oracle Database Free, direct",
     () =>
       new OracleDbContainer("gvenzl/oracle-free:23-slim")
         .withDatabase(ORACLE_DATABASE)
@@ -212,14 +265,57 @@ function mysqlUrl(mariaDbUrl) {
   return url.toString();
 }
 
+async function runPostgresHyperdriveWorkerContracts(connectionString) {
+  const environment = localHyperdriveEnvironment(connectionString);
+  const fixture = "integration-tests/postgres-hyperdrive";
+  await runGradle(
+    [
+      ":integration-tests:postgres-hyperdrive:jsProductionExecutableCompileSync",
+      ":integration-tests:postgres-hyperdrive:wasmJsProductionExecutableCompileSync",
+    ],
+    environment,
+  );
+  for (const target of ["js", "wasm"]) {
+    await runNodeScript(`${fixture}/scripts/prepare-worker.mjs`, [target], environment);
+    await runNodeScript(`${fixture}/scripts/test-worker.mjs`, [target], environment);
+  }
+}
+
+async function runMySqlHyperdriveWorkerContracts(connectionString, database) {
+  const environment = localHyperdriveEnvironment(connectionString);
+  const fixture = "integration-tests/mysql-hyperdrive";
+  await runGradle(
+    [
+      ":integration-tests:mysql-hyperdrive:jsProductionExecutableCompileSync",
+      ":integration-tests:mysql-hyperdrive:wasmJsProductionExecutableCompileSync",
+    ],
+    environment,
+  );
+  for (const target of ["js", "wasm"]) {
+    await runNodeScript(`${fixture}/scripts/prepare-worker.mjs`, [target, database], environment);
+    await runNodeScript(
+      `${fixture}/scripts/test-worker.mjs`,
+      [target, database === "mariadb" ? "mariadb" : "contract"],
+      environment,
+    );
+  }
+}
+
+function localHyperdriveEnvironment(connectionString) {
+  return { CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE: connectionString };
+}
+
 const tests = {
-  postgres: testPostgres,
-  mysql: testMySql,
-  mariadb: testMariaDb,
-  sqlserver: testSqlServer,
-  oracle: testOracle,
+  "postgres-direct": testPostgresDirect,
+  "postgres-hyperdrive": testPostgresHyperdrive,
+  "mysql-direct": testMySqlDirect,
+  "mysql-hyperdrive": testMySqlHyperdrive,
+  "mariadb-direct": testMariaDbDirect,
+  "mariadb-hyperdrive": testMariaDbHyperdrive,
+  "sqlserver-direct": testSqlServerDirect,
+  "oracle-direct": testOracleDirect,
 };
 
-for (const database of requestedDatabases) {
-  await tests[database]();
+for (const target of requestedTargets) {
+  await tests[target]();
 }

@@ -17,7 +17,8 @@
     "knip": "6.43.0",
     "markdownlint-cli2": "0.24.0",
     "oxfmt": "0.75.0",
-    "oxlint": "1.90.0"
+    "oxlint": "1.90.0",
+    "wrangler": "4.155.0"
   },
   "overrides": {
     "katex": "0.18.2"

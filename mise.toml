@@ -42,88 +42,18 @@ run = [
 ]
 
 [tasks."test:containers"]
-description = "Run disposable PostgreSQL, MySQL, MariaDB, SQL Server, and Oracle contracts with Testcontainers"
+description = "Run Testcontainers-backed connection target contracts"
 depends = ["deps"]
 run = "node scripts/test-database-containers.mjs"
+
+[tasks."test:connection-target"]
+description = "Run one README connection target contract"
+depends = ["deps"]
+run = "node scripts/test-connection-target.mjs"
 
 [tasks."test:compile"]
 description = "Check positive and negative Kagiroi Kotlin/Wasm compiler fixtures"
 run = "bun scripts/test-compile.mjs"
-
-[tasks."test:hyperdrive:remote"]
-description = "Run JS and Wasm PostgreSQL contracts through a remote Hyperdrive binding"
-run = [
-    { task = "test:hyperdrive:remote:js" },
-    { task = "test:hyperdrive:remote:wasm" },
-]
-
-[tasks."test:hyperdrive:remote:js"]
-description = "Run the Kotlin/JS PostgreSQL contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:postgres-hyperdrive:jsProductionExecutableCompileSync",
-    "node integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs js",
-    "node integration-tests/postgres-hyperdrive/scripts/test-remote.mjs js",
-]
-
-[tasks."test:hyperdrive:remote:wasm"]
-description = "Run the Kotlin/Wasm PostgreSQL contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:postgres-hyperdrive:wasmJsProductionExecutableCompileSync",
-    "node integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs wasm",
-    "node integration-tests/postgres-hyperdrive/scripts/test-remote.mjs wasm",
-]
-
-[tasks."test:hyperdrive:mysql:remote"]
-description = "Run JS and Wasm MySQL contracts through a remote Hyperdrive binding"
-run = [
-    { task = "test:hyperdrive:mysql:remote:js" },
-    { task = "test:hyperdrive:mysql:remote:wasm" },
-]
-
-[tasks."test:hyperdrive:mysql:remote:js"]
-description = "Run the Kotlin/JS MySQL contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:mysql-hyperdrive:jsProductionExecutableCompileSync",
-    "node integration-tests/mysql-hyperdrive/scripts/prepare-worker.mjs js",
-    "node integration-tests/mysql-hyperdrive/scripts/test-remote.mjs js",
-]
-
-[tasks."test:hyperdrive:mysql:remote:wasm"]
-description = "Run the Kotlin/Wasm MySQL contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:mysql-hyperdrive:wasmJsProductionExecutableCompileSync",
-    "node integration-tests/mysql-hyperdrive/scripts/prepare-worker.mjs wasm",
-    "node integration-tests/mysql-hyperdrive/scripts/test-remote.mjs wasm",
-]
-
-[tasks."test:hyperdrive:mariadb:remote"]
-description = "Run JS and Wasm MariaDB contracts through a remote Hyperdrive binding"
-run = [
-    { task = "test:hyperdrive:mariadb:remote:js" },
-    { task = "test:hyperdrive:mariadb:remote:wasm" },
-]
-
-[tasks."test:hyperdrive:mariadb:remote:js"]
-description = "Run the Kotlin/JS MariaDB contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:mysql-hyperdrive:jsProductionExecutableCompileSync",
-    "node integration-tests/mysql-hyperdrive/scripts/prepare-worker.mjs js mariadb",
-    "node integration-tests/mysql-hyperdrive/scripts/test-remote.mjs js mariadb",
-]
-
-[tasks."test:hyperdrive:mariadb:remote:wasm"]
-description = "Run the Kotlin/Wasm MariaDB contract through a remote Hyperdrive binding"
-depends = ["deps"]
-run = [
-    "./gradlew :integration-tests:mysql-hyperdrive:wasmJsProductionExecutableCompileSync",
-    "node integration-tests/mysql-hyperdrive/scripts/prepare-worker.mjs wasm mariadb",
-    "node integration-tests/mysql-hyperdrive/scripts/test-remote.mjs wasm mariadb",
-]
 
 [tasks.test]
 description = "Run all local Kotlin, database, and compiler tests in order"

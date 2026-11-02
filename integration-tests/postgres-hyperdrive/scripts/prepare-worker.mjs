@@ -1,3 +1,20 @@
+/**
+ * Prepares the local Wrangler Worker fixture from compiled PostgreSQL
+ * Hyperdrive contract tests.
+ *
+ * Usage:
+ *   node integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs <target>
+ *
+ * Arguments:
+ *   target  Required. Kotlin compilation target: js or wasm.
+ *
+ * Prerequisite:
+ *   Run the matching compileSync task before this script.
+ *
+ * Examples:
+ *   node integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs js
+ *   node integration-tests/postgres-hyperdrive/scripts/prepare-worker.mjs wasm
+ */
 import { copyFile, cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -7,10 +24,7 @@ if (targetName !== "js" && targetName !== "wasm") {
   throw new Error("Expected target 'js' or 'wasm'");
 }
 
-const hyperdriveId = process.env.KAGIROI_HYPERDRIVE_ID;
-if (!/^[0-9a-f]{32}$/u.test(hyperdriveId ?? "")) {
-  throw new Error("KAGIROI_HYPERDRIVE_ID must contain a 32-character Hyperdrive ID");
-}
+const LOCAL_HYPERDRIVE_ID = "00000000-0000-0000-0000-000000000000";
 
 const fixture = fileURLToPath(new URL("../", import.meta.url));
 const repository = path.resolve(fixture, "../..");
@@ -49,23 +63,33 @@ await writeFile(
             "node_modules/pg/lib/index.js",
           ),
         ),
-        ...(targetName === "wasm"
-          ? {
-              "@js-joda/core": path.relative(
-                target,
-                path.join(repository, "build/wasm/node_modules/@js-joda/core/dist/js-joda.esm.js"),
-              ),
-            }
-          : {}),
+        "@js-joda/core": path.relative(
+          target,
+          path.join(
+            repository,
+            "build",
+            targetName === "js" ? "js" : "wasm",
+            "node_modules/@js-joda/core/dist/js-joda.esm.js",
+          ),
+        ),
+        "@js-joda/timezone": path.relative(
+          target,
+          path.join(
+            repository,
+            "build",
+            targetName === "js" ? "js" : "wasm",
+            "node_modules/@js-joda/timezone/dist/js-joda-timezone.esm.js",
+          ),
+        ),
       },
-      hyperdrive: [{ binding: "HYPERDRIVE", id: hyperdriveId }],
+      hyperdrive: [{ binding: "HYPERDRIVE", id: LOCAL_HYPERDRIVE_ID }],
     },
     null,
     2,
   )}\n`,
 );
 
-console.log(`Prepared remote Hyperdrive contract Worker for ${targetName}`);
+console.log(`Prepared local Hyperdrive contract Worker for ${targetName}`);
 
 async function prepareJs(sourceDirectory, targetDirectory, moduleBase) {
   const kotlinDirectory = path.join(targetDirectory, "kotlin");

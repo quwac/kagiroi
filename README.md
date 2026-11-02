@@ -36,9 +36,9 @@ operations before using it in an application.
 
 1. Add the BOM and the dialect/driver modules for the database you use.
 2. Define tables with `kagiroi-schema`.
-3. Follow the [Kotlin SQL cheat sheet](docs/kagiroi-cheatsheet.md) for typed
+3. Follow the [Kagiroi cheat sheet](docs/CHEATSHEET.md) for typed
    queries, DML, DDL, transactions, and dialect boundaries.
-4. Confirm physical types and codecs in [Type mappings](docs/type-mappings.md).
+4. Confirm physical types and codecs in [Kagiroi type mappings](docs/TYPE_MAPPINGS.md).
 
 ## Install
 
@@ -103,9 +103,9 @@ a complete vendor-specific statement outside the typed API.
 
 ## Documentation
 
-- [Kotlin SQL cheat sheet](docs/kagiroi-cheatsheet.md): table declarations,
+- [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,
   queries, DML, DDL, transactions, and dialect differences
-- [Type mappings](docs/type-mappings.md): physical types, codecs, precision,
+- [Kagiroi type mappings](docs/TYPE_MAPPINGS.md): physical types, codecs, precision,
   JSON boundaries, and intentional exclusions
 - [Contributing](CONTRIBUTING.md): local setup, checks, and dependency updates
 

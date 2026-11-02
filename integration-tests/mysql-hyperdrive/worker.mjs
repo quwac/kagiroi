@@ -22,9 +22,9 @@ export default {
         : smoke
           ? runHyperdriveMySqlSmoke
           : runHyperdriveMySqlContract;
-      console.log(`Starting remote Hyperdrive ${database} ${smoke ? "smoke" : "contract"}`);
+      console.log(`Starting local Hyperdrive ${database} ${smoke ? "smoke" : "contract"}`);
       const result = await operation(environment.HYPERDRIVE);
-      console.log(`Finished remote Hyperdrive ${database} ${smoke ? "smoke" : "contract"}`);
+      console.log(`Finished local Hyperdrive ${database} ${smoke ? "smoke" : "contract"}`);
       return Response.json({ ok: result === "ok" });
     } catch (error) {
       console.error(error);

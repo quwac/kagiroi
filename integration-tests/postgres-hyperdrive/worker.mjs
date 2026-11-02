@@ -6,9 +6,9 @@ export default {
       return new Response("Method Not Allowed", { status: 405 });
     }
     try {
-      console.log("Starting remote Hyperdrive contract");
+      console.log("Starting local Hyperdrive contract");
       const result = await runHyperdrivePostgresContract(environment.HYPERDRIVE);
-      console.log("Finished remote Hyperdrive contract");
+      console.log("Finished local Hyperdrive contract");
       return Response.json({ ok: result === "ok" });
     } catch (error) {
       console.error(error);
