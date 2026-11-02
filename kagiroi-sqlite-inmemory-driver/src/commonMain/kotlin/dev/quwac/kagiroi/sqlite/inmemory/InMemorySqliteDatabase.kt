@@ -31,6 +31,7 @@ import dev.quwac.kagiroi.sql.sqlRow
 import dev.quwac.kagiroi.sqlite.SqliteDialect
 import dev.quwac.kagiroi.sqlite.SqliteExtension
 import dev.quwac.kagiroi.sqlite.SqliteStandardTypes
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -96,10 +97,14 @@ class InMemorySqliteDatabase private constructor(
         if (inheritedTransactions?.contains(this) == true) throw NestedTransactionUnsupported()
         access.lock()
         val scope = TransactionScope()
+        var transactionStarted = false
         try {
             ensureOpen()
             try {
-                executeEngine("BEGIN", emptyList())
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { executeEngine("BEGIN", emptyList()) }
+                transactionStarted = true
+                currentCoroutineContext().ensureActive()
             } catch (error: dev.quwac.kagiroi.sql.DatabaseError) {
                 throw TransactionFailure("Failed to begin transaction", error)
             }
@@ -108,17 +113,35 @@ class InMemorySqliteDatabase private constructor(
                     scope.block()
                 }
             } catch (error: Throwable) {
-                rollbackAfter(error)
+                withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                executeEngine("COMMIT", emptyList())
-            } catch (error: dev.quwac.kagiroi.sql.DatabaseError) {
-                rollbackAfter(error)
-                throw TransactionFailure("Failed to commit transaction", error)
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { executeEngine("COMMIT", emptyList()) }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
+            } catch (error: Throwable) {
+                if (!committed) {
+                    withContext(NonCancellable) { rollbackAfter(error) }
+                    transactionStarted = false
+                }
+                throw when (error) {
+                    is dev.quwac.kagiroi.sql.DatabaseError -> TransactionFailure("Failed to commit transaction", error)
+                    else -> error
+                }
             }
             return result
+        } catch (error: Throwable) {
+            if (transactionStarted) {
+                withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
+            }
+            throw error
         } finally {
             scope.active = false
             access.unlock()
@@ -148,11 +171,12 @@ class InMemorySqliteDatabase private constructor(
 
     suspend fun dispose() = close()
 
+    @Suppress("TooGenericExceptionCaught") // A rollback failure is deliberately retained on the original failure.
     private suspend fun rollbackAfter(original: Throwable) {
         try {
             executeEngine("ROLLBACK", emptyList())
-        } catch (rollback: dev.quwac.kagiroi.sql.DatabaseError) {
-            throw TransactionFailure("Failed to roll back transaction after: ${original.message}", rollback)
+        } catch (rollback: Throwable) {
+            original.addSuppressed(TransactionFailure("Failed to roll back transaction", rollback))
         }
     }
 

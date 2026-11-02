@@ -298,7 +298,7 @@ class NodeMySqlDatabase private constructor(
 
     override suspend fun <T> transaction(block: suspend SqlTransaction.() -> T): T = runTransaction(null, block)
 
-    @Suppress("ThrowsCount", "TooGenericExceptionCaught")
+    @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
     private suspend fun <T> runTransaction(
         isolation: TransactionIsolation?,
         block: suspend SqlTransaction.() -> T,
@@ -309,30 +309,48 @@ class NodeMySqlDatabase private constructor(
         val execution = MySqlExecution(session, typeCodecs)
         val scope = TransactionScope(execution)
         var discard = false
+        var transactionStarted = false
         try {
-            begin(execution, isolation)
+            currentCoroutineContext().ensureActive()
+            withContext(NonCancellable) { begin(execution, isolation) }
+            transactionStarted = true
+            currentCoroutineContext().ensureActive()
             val result = try {
                 withContext((inheritedTransactions ?: ActiveNodeMySqlTransactions()).including(this)) {
                     scope.block()
                 }
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(execution, error) }
+                discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                execution.executeControl("COMMIT")
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { execution.executeControl("COMMIT") }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(execution, error) }
+                if (!committed) {
+                    discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                    transactionStarted = false
+                }
                 when (error) {
                     is SerializationFailure, is DeadlockFailure, is LockTimeoutFailure -> throw error
                     is DatabaseError -> throw TransactionFailure("Failed to commit MySQL transaction", error)
                     else -> throw error
                 }
             }
+            transactionStarted = false
             return result
         } catch (error: Throwable) {
-            discard = error.hasConnectionFailure()
+            if (transactionStarted) {
+                discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
+                transactionStarted = false
+            }
+            discard = discard || error.hasConnectionFailure()
             throw error
         } finally {
             scope.active = false
@@ -441,15 +459,14 @@ class NodeMySqlDatabase private constructor(
         }
     }
 
-    private suspend fun rollbackAfter(execution: MySqlExecution, original: Throwable) {
-        try {
-            execution.executeControl("ROLLBACK")
-        } catch (rollback: DatabaseError) {
-            throw TransactionFailure(
-                "Failed to roll back MySQL transaction after: ${original.message}",
-                rollback,
-            )
-        }
+    /** Returns whether the session must be discarded after an unsuccessful rollback. */
+    @Suppress("TooGenericExceptionCaught") // A rollback failure is deliberately retained on the original failure.
+    private suspend fun rollbackAfter(execution: MySqlExecution, original: Throwable): Boolean = try {
+        execution.executeControl("ROLLBACK")
+        false
+    } catch (rollback: Throwable) {
+        original.addSuppressed(TransactionFailure("Failed to roll back MySQL transaction", rollback))
+        true
     }
 
     @Suppress("TooGenericExceptionCaught")

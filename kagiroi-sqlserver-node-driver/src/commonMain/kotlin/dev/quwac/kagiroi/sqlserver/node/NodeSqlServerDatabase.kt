@@ -239,26 +239,40 @@ class NodeSqlServerDatabase private constructor(
     ): T {
         val inherited = currentCoroutineContext()[ActiveNodeSqlServerTransactions]
         if (inherited?.contains(this) == true) throw NestedTransactionUnsupported()
-        val transaction = try {
-            ensureOpen()
-            pool.begin(isolation?.toNodeIsolation())
-        } catch (error: SqlServerDriverException) {
-            throw error.toDatabaseError("Failed to begin SQL Server transaction")
+        currentCoroutineContext().ensureActive()
+        val transaction = withContext(NonCancellable) {
+            try {
+                ensureOpen()
+                pool.begin(isolation?.toNodeIsolation())
+            } catch (error: SqlServerDriverException) {
+                throw error.toDatabaseError("Failed to begin SQL Server transaction")
+            }
         }
         val execution = SqlServerExecution(transaction, typeCodecs)
         val scope = TransactionScope(execution)
+        var transactionStarted = true
         try {
+            currentCoroutineContext().ensureActive()
             val result = try {
                 withContext((inherited ?: ActiveNodeSqlServerTransactions()).including(this)) { scope.block() }
             } catch (error: Throwable) {
                 withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                transaction.commit()
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { transaction.commit() }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                if (!committed) {
+                    withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                    transactionStarted = false
+                }
                 when (error) {
                     is SqlServerDriverException -> throw TransactionFailure(
                         "Failed to commit SQL Server transaction",
@@ -271,6 +285,12 @@ class NodeSqlServerDatabase private constructor(
                 }
             }
             return result
+        } catch (error: Throwable) {
+            if (transactionStarted) {
+                withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                transactionStarted = false
+            }
+            throw error
         } finally {
             scope.active = false
         }
@@ -295,11 +315,12 @@ class NodeSqlServerDatabase private constructor(
     private suspend fun rollbackAfter(transaction: NodeSqlServerTransaction, original: Throwable) {
         try {
             transaction.rollback()
-        } catch (rollback: SqlServerDriverException) {
-            throw TransactionFailure(
-                "Failed to roll back SQL Server transaction after: ${original.message}",
-                rollback.toDatabaseError("SQL Server rollback failed"),
-            )
+        } catch (rollback: Throwable) {
+            val failure = when (rollback) {
+                is SqlServerDriverException -> rollback.toDatabaseError("SQL Server rollback failed")
+                else -> rollback
+            }
+            original.addSuppressed(TransactionFailure("Failed to roll back SQL Server transaction", failure))
         }
     }
 

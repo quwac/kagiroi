@@ -166,22 +166,35 @@ class PGliteDatabase private constructor(
         if (inheritedTransactions?.contains(this) == true) throw NestedTransactionUnsupported()
         access.lock()
         val scope = TransactionScope()
+        var transactionStarted = false
         try {
             ensureOpen()
-            begin(isolation)
+            currentCoroutineContext().ensureActive()
+            withContext(NonCancellable) { begin(isolation) }
+            transactionStarted = true
+            currentCoroutineContext().ensureActive()
             val result = try {
                 withContext((inheritedTransactions ?: ActivePGliteTransactions()).including(this)) {
                     scope.block()
                 }
             } catch (error: Throwable) {
                 withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
                 throw error
             }
+            var committed = false
             try {
                 scope.requireUsable()
-                execution.executeControl("COMMIT")
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) { execution.executeControl("COMMIT") }
+                committed = true
+                transactionStarted = false
+                currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(error) }
+                if (!committed) {
+                    withContext(NonCancellable) { rollbackAfter(error) }
+                    transactionStarted = false
+                }
                 when (error) {
                     is SerializationFailure, is DeadlockFailure -> throw error
                     is DatabaseError -> throw TransactionFailure("Failed to commit PGlite transaction", error)
@@ -189,6 +202,12 @@ class PGliteDatabase private constructor(
                 }
             }
             return result
+        } catch (error: Throwable) {
+            if (transactionStarted) {
+                withContext(NonCancellable) { rollbackAfter(error) }
+                transactionStarted = false
+            }
+            throw error
         } finally {
             scope.active = false
             access.unlock()
@@ -204,14 +223,12 @@ class PGliteDatabase private constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught") // A rollback failure is deliberately retained on the original failure.
     private suspend fun rollbackAfter(original: Throwable) {
         try {
             execution.executeControl("ROLLBACK")
-        } catch (rollback: DatabaseError) {
-            throw TransactionFailure(
-                "Failed to roll back PGlite transaction after: ${original.message}",
-                rollback,
-            )
+        } catch (rollback: Throwable) {
+            original.addSuppressed(TransactionFailure("Failed to roll back PGlite transaction", rollback))
         }
     }
 

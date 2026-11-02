@@ -14,11 +14,13 @@ import dev.quwac.kagiroi.sql.LockTimeoutFailure
 import dev.quwac.kagiroi.sql.SerializationFailure
 import dev.quwac.kagiroi.sql.SqlCapabilities
 import dev.quwac.kagiroi.sql.SqlStreamingMode
+import dev.quwac.kagiroi.sql.TransactionFailure
 import dev.quwac.kagiroi.sql.TransactionIsolation
 import dev.quwac.kagiroi.sql.eq
 import dev.quwac.kagiroi.sql.select
 import dev.quwac.kagiroi.sql.transaction
 import dev.quwac.kagiroi.sql.where
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -30,6 +32,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.Uuid
@@ -104,6 +107,64 @@ class NodePostgresDatabaseTest {
 
         assertEquals(listOf("BEGIN", "ROLLBACK"), pool.sessions.single().executions.map(PostgresStatement::sql))
         assertEquals(1, pool.sessions.single().releaseCount)
+    }
+
+    @Test
+    fun preservesTheOriginalFailureAndDiscardsTheSessionWhenRollbackFails() = runTest {
+        val failingRollback = failure("08006", PostgresFailureKind.CONNECTION)
+        val pool = FakeNodePostgresPool().apply { rollbackFailure = failingRollback }
+        val database = NodePostgresDatabase.create(pool)
+        val original = IllegalStateException("block failure")
+
+        val propagated = assertFailsWith<IllegalStateException> {
+            database.transaction { throw original }
+        }
+
+        assertSame(original, propagated)
+        val cleanupFailure = propagated.suppressedExceptions.single() as TransactionFailure
+        val connectionFailure = cleanupFailure.cause as ConnectionFailure
+        assertSame(failingRollback, connectionFailure.cause)
+        assertTrue(pool.sessions.single().discarded)
+    }
+
+    @Test
+    fun doesNotRollbackAfterACommitThatCompletesDuringCancellation() = runTest {
+        val commitStarted = CompletableDeferred<Unit>()
+        val allowCommit = CompletableDeferred<Unit>()
+        val pool = FakeNodePostgresPool().apply {
+            this.commitStarted = commitStarted
+            this.allowCommit = allowCommit
+        }
+        val database = NodePostgresDatabase.create(pool)
+        val transaction = launch { database.transaction { } }
+
+        commitStarted.await()
+        transaction.cancel()
+        allowCommit.complete(Unit)
+        transaction.join()
+
+        assertTrue(transaction.isCancelled)
+        assertEquals(listOf("BEGIN", "COMMIT"), pool.sessions.single().executions.map(PostgresStatement::sql))
+    }
+
+    @Test
+    fun rollsBackWhenCancellationArrivesAfterBeginCompletes() = runTest {
+        val beginStarted = CompletableDeferred<Unit>()
+        val allowBegin = CompletableDeferred<Unit>()
+        val pool = FakeNodePostgresPool().apply {
+            this.beginStarted = beginStarted
+            this.allowBegin = allowBegin
+        }
+        val database = NodePostgresDatabase.create(pool)
+        val transaction = launch { database.transaction { } }
+
+        beginStarted.await()
+        transaction.cancel()
+        allowBegin.complete(Unit)
+        transaction.join()
+
+        assertTrue(transaction.isCancelled)
+        assertEquals(listOf("BEGIN", "ROLLBACK"), pool.sessions.single().executions.map(PostgresStatement::sql))
     }
 
     @Test
@@ -214,6 +275,11 @@ private class FakeNodePostgresPool : NodePostgresPool {
     var nextCommandResult = PostgresCommandResult(0)
     var nextFailure: PostgresDriverException? = null
     var acquireFailure: PostgresDriverException? = null
+    var rollbackFailure: PostgresDriverException? = null
+    var beginStarted: CompletableDeferred<Unit>? = null
+    var allowBegin: CompletableDeferred<Unit>? = null
+    var commitStarted: CompletableDeferred<Unit>? = null
+    var allowCommit: CompletableDeferred<Unit>? = null
     var acquireCount = 0
     var closeCount = 0
 
@@ -236,6 +302,17 @@ private class FakeNodePostgresSession(private val pool: FakeNodePostgresPool) : 
 
     override suspend fun execute(statement: PostgresStatement): PostgresCommandResult {
         executions += statement
+        if (statement.sql == "ROLLBACK") {
+            pool.rollbackFailure?.let { throw it }
+        }
+        if (statement.sql == "BEGIN") {
+            pool.beginStarted?.complete(Unit)
+            pool.allowBegin?.await()
+        }
+        if (statement.sql == "COMMIT") {
+            pool.commitStarted?.complete(Unit)
+            pool.allowCommit?.await()
+        }
         pool.nextFailure?.let {
             pool.nextFailure = null
             throw it
