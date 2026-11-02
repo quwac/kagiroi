@@ -15,26 +15,6 @@ class NodePostgresCompatibilityIntegrationTest {
         nodePostgresDriverContract(configuredDatabase(url))
         nodePostgresPoolContract(url)
     }
-
-    @Test
-    fun neonContract() = runTest {
-        runProviderContract(NEON_TEST_URL)
-    }
-
-    @Test
-    fun supabaseContract() = runTest {
-        runProviderContract(SUPABASE_TEST_URL)
-    }
-
-    @Test
-    fun auroraContract() = runTest {
-        runProviderContract(AURORA_TEST_URL)
-    }
-}
-
-private suspend fun runProviderContract(variable: String) {
-    val url = environmentVariable(variable) ?: return
-    nodePostgresDriverContract(configuredDatabase(url))
 }
 
 private fun configuredDatabase(url: String): NodePostgresDatabase = NodePostgresDatabase(url) {
@@ -51,8 +31,5 @@ private fun environmentVariable(name: String): String? =
     js("typeof process !== 'undefined' ? process.env[name] : undefined") as? String
 
 private const val LOCAL_TEST_URL = "KAGIROI_POSTGRES_TEST_URL"
-private const val NEON_TEST_URL = "KAGIROI_NEON_POSTGRES_TEST_URL"
-private const val SUPABASE_TEST_URL = "KAGIROI_SUPABASE_POSTGRES_TEST_URL"
-private const val AURORA_TEST_URL = "KAGIROI_AURORA_POSTGRES_TEST_URL"
 private const val INTEGRATION_POOL_SIZE = 4
 private val INTEGRATION_CONNECTION_TIMEOUT = 5.seconds

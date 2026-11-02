@@ -22,6 +22,8 @@ import { MySqlContainer } from "@testcontainers/mysql";
 import { OracleDbContainer } from "@testcontainers/oraclefree";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 
+import { localDatabaseTestEnvironment } from "./test-database-environment.mjs";
+
 const CONNECTION_TARGETS = [
   "postgres-direct",
   "postgres-hyperdrive",
@@ -37,25 +39,6 @@ const TEST_USER = "kagiroi";
 const TEST_PASSWORD = ["Kagiroi", "!", "Passw0rd"].join("");
 const ORACLE_DATABASE = "FREEPDB1";
 const SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
-const EXTERNAL_DATABASE_ENVIRONMENT_NAMES = [
-  "KAGIROI_AURORA_MYSQL_TEST_URL",
-  "KAGIROI_AURORA_POSTGRES_TEST_URL",
-  "KAGIROI_MARIADB_TEST_URL",
-  "KAGIROI_MYSQL_TEST_URL",
-  "KAGIROI_NEON_POSTGRES_TEST_URL",
-  "KAGIROI_ORACLE_TEST_CONNECT_STRING",
-  "KAGIROI_ORACLE_TEST_PASSWORD",
-  "KAGIROI_ORACLE_TEST_USER",
-  "KAGIROI_PLANETSCALE_MYSQL_TEST_URL",
-  "KAGIROI_POSTGRES_TEST_URL",
-  "KAGIROI_SQLSERVER_TEST_DATABASE",
-  "KAGIROI_SQLSERVER_TEST_HOST",
-  "KAGIROI_SQLSERVER_TEST_PASSWORD",
-  "KAGIROI_SQLSERVER_TEST_PORT",
-  "KAGIROI_SQLSERVER_TEST_USER",
-  "KAGIROI_SUPABASE_POSTGRES_TEST_URL",
-];
-
 const selections = process.argv.slice(2);
 const requestedTargets = selections.length === 0 ? CONNECTION_TARGETS : selections;
 
@@ -75,11 +58,7 @@ async function runGradle(tasks, environment) {
 
 async function runGradleTask(task, environment) {
   const command = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
-  const childEnvironment = { ...process.env };
-
-  for (const name of EXTERNAL_DATABASE_ENVIRONMENT_NAMES) {
-    delete childEnvironment[name];
-  }
+  const childEnvironment = localDatabaseTestEnvironment();
 
   Object.assign(childEnvironment, environment);
 
@@ -109,7 +88,7 @@ async function runNodeScript(script, arguments_, environment) {
   await new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [script, ...arguments_], {
       cwd: process.cwd(),
-      env: { ...process.env, ...environment },
+      env: { ...localDatabaseTestEnvironment(), ...environment },
       stdio: "inherit",
     });
 
@@ -158,7 +137,7 @@ async function testPostgresDirect() {
 
 async function testPostgresHyperdrive() {
   await withContainer("PostgreSQL through local Hyperdrive", startPostgresContainer, (container) =>
-    runPostgresHyperdriveWorkerContracts(container.getConnectionUri()),
+    runPostgresHyperdriveContracts(container.getConnectionUri()),
   );
 }
 
@@ -182,7 +161,7 @@ async function testMySqlDirect() {
 
 async function testMySqlHyperdrive() {
   await withContainer("MySQL through local Hyperdrive", startMySqlContainer, (container) =>
-    runMySqlHyperdriveWorkerContracts(container.getConnectionUri(), "mysql"),
+    runMySqlHyperdriveContracts(container.getConnectionUri(), "mysql"),
   );
 }
 
@@ -206,7 +185,7 @@ async function testMariaDbDirect() {
 
 async function testMariaDbHyperdrive() {
   await withContainer("MariaDB through local Hyperdrive", startMariaDbContainer, (container) =>
-    runMySqlHyperdriveWorkerContracts(mysqlUrl(container.getConnectionUri()), "mariadb"),
+    runMySqlHyperdriveContracts(mysqlUrl(container.getConnectionUri()), "mariadb"),
   );
 }
 
@@ -265,9 +244,16 @@ function mysqlUrl(mariaDbUrl) {
   return url.toString();
 }
 
-async function runPostgresHyperdriveWorkerContracts(connectionString) {
+async function runPostgresHyperdriveContracts(connectionString) {
   const environment = localHyperdriveEnvironment(connectionString);
   const fixture = "integration-tests/postgres-hyperdrive";
+  await runGradle(
+    [
+      ":kagiroi-postgres-hyperdrive-driver:jsNodeTest",
+      ":kagiroi-postgres-hyperdrive-driver:wasmJsNodeTest",
+    ],
+    { KAGIROI_POSTGRES_TEST_URL: connectionString },
+  );
   await runGradle(
     [
       ":integration-tests:postgres-hyperdrive:jsProductionExecutableCompileSync",
@@ -281,9 +267,18 @@ async function runPostgresHyperdriveWorkerContracts(connectionString) {
   }
 }
 
-async function runMySqlHyperdriveWorkerContracts(connectionString, database) {
+async function runMySqlHyperdriveContracts(connectionString, database) {
   const environment = localHyperdriveEnvironment(connectionString);
   const fixture = "integration-tests/mysql-hyperdrive";
+  await runGradle(
+    [
+      ":kagiroi-mysql-hyperdrive-driver:jsNodeTest",
+      ":kagiroi-mysql-hyperdrive-driver:wasmJsNodeTest",
+    ],
+    database === "mariadb"
+      ? { KAGIROI_MARIADB_TEST_URL: connectionString }
+      : { KAGIROI_MYSQL_TEST_URL: connectionString },
+  );
   await runGradle(
     [
       ":integration-tests:mysql-hyperdrive:jsProductionExecutableCompileSync",

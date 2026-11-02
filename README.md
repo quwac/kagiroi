@@ -73,20 +73,20 @@ connection integration.
 
 ## Connection targets and execution paths
 
-| Connection target / execution path | Dialect module | Driver module |
-| --- | --- | --- |
-| SQLite, in memory | `kagiroi-sqlite` | `kagiroi-sqlite-inmemory-driver` |
-| SQLite, file-backed | `kagiroi-sqlite` | `kagiroi-sqlite-file-driver` |
-| Cloudflare D1 | `kagiroi-sqlite` | `kagiroi-d1-driver` |
-| PostgreSQL, direct | `kagiroi-postgres` | `kagiroi-postgres-node-driver` |
-| PostgreSQL through Cloudflare Hyperdrive | `kagiroi-postgres` | `kagiroi-postgres-hyperdrive-driver` |
-| PGlite | PostgreSQL dialect | `kagiroi-pglite-driver` |
-| MySQL, direct | `kagiroi-mysql` | `kagiroi-mysql-node-driver` |
-| MySQL through Cloudflare Hyperdrive | `kagiroi-mysql` | `kagiroi-mysql-hyperdrive-driver` |
-| MariaDB, direct | `kagiroi-mariadb` | `kagiroi-mysql-node-driver` |
-| MariaDB through Cloudflare Hyperdrive | `kagiroi-mariadb` | `kagiroi-mysql-hyperdrive-driver` |
-| SQL Server, direct | `kagiroi-sqlserver` | `kagiroi-sqlserver-node-driver` |
-| Oracle Database 23ai+, direct | `kagiroi-oracle` | `kagiroi-node-oracle-driver` |
+| Connection target / execution path | Dialect module | Driver module | Test target |
+| --- | --- | --- | --- |
+| SQLite, in memory | `kagiroi-sqlite` | `kagiroi-sqlite-inmemory-driver` | `sqlite-inmemory` |
+| SQLite, file-backed | `kagiroi-sqlite` | `kagiroi-sqlite-file-driver` | `sqlite-file` |
+| Cloudflare D1 | `kagiroi-sqlite` | `kagiroi-d1-driver` | `d1` |
+| PostgreSQL, direct | `kagiroi-postgres` | `kagiroi-postgres-node-driver` | `postgres-direct` |
+| PostgreSQL through Cloudflare Hyperdrive | `kagiroi-postgres` | `kagiroi-postgres-hyperdrive-driver` | `postgres-hyperdrive` |
+| PGlite | PostgreSQL dialect | `kagiroi-pglite-driver` | `pglite` |
+| MySQL, direct | `kagiroi-mysql` | `kagiroi-mysql-node-driver` | `mysql-direct` |
+| MySQL through Cloudflare Hyperdrive | `kagiroi-mysql` | `kagiroi-mysql-hyperdrive-driver` | `mysql-hyperdrive` |
+| MariaDB, direct | `kagiroi-mariadb` | `kagiroi-mysql-node-driver` | `mariadb-direct` |
+| MariaDB through Cloudflare Hyperdrive | `kagiroi-mariadb` | `kagiroi-mysql-hyperdrive-driver` | `mariadb-hyperdrive` |
+| SQL Server, direct | `kagiroi-sqlserver` | `kagiroi-sqlserver-node-driver` | `sqlserver-direct` |
+| Oracle Database 23ai+, direct | `kagiroi-oracle` | `kagiroi-node-oracle-driver` | `oracle-direct` |
 
 They do not provide Kotlin/Native, standalone Wasm, or WASI database clients.
 

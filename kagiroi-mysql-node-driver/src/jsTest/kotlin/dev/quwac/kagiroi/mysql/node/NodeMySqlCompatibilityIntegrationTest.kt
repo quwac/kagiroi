@@ -25,21 +25,6 @@ class NodeMySqlCompatibilityIntegrationTest {
         verifyMySqlCompatibleIndexAndUniqueComments(configuredDatabase(url))
         verifyMySqlDuplicateKeyUpdate(configuredDatabase(url))
     }
-
-    @Test
-    fun planetScaleContract() = runTest {
-        runProviderContract(PLANETSCALE_TEST_URL)
-    }
-
-    @Test
-    fun auroraContract() = runTest {
-        runProviderContract(AURORA_TEST_URL)
-    }
-}
-
-private suspend fun runProviderContract(variable: String) {
-    val url = environmentVariable(variable) ?: return
-    nodeMySqlDriverContract(configuredDatabase(url))
 }
 
 private fun configuredDatabase(url: String): NodeMySqlDatabase = NodeMySqlDatabase(url) {
@@ -56,7 +41,5 @@ private fun environmentVariable(name: String): String? =
     js("typeof process !== 'undefined' ? process.env[name] : undefined") as? String
 
 private const val LOCAL_TEST_URL = "KAGIROI_MYSQL_TEST_URL"
-private const val PLANETSCALE_TEST_URL = "KAGIROI_PLANETSCALE_MYSQL_TEST_URL"
-private const val AURORA_TEST_URL = "KAGIROI_AURORA_MYSQL_TEST_URL"
 private const val INTEGRATION_POOL_SIZE = 4
 private val INTEGRATION_ACQUISITION_TIMEOUT = 5.seconds

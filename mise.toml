@@ -30,8 +30,9 @@ description = "Install locked tooling and database test dependencies with Bun"
 run = "bun install --frozen-lockfile"
 
 [tasks."test:kotlin"]
-description = "Run Kotlin tests on all configured targets"
-run = "./gradlew allTests"
+description = "Run Kotlin library tests without connection-target integration tests"
+depends = ["deps"]
+run = "node scripts/test-library.mjs"
 
 [tasks."test:pglite:bun"]
 description = "Run the PGlite JS and Wasm test bundles with Bun"
@@ -59,7 +60,10 @@ run = "bun scripts/test-compile.mjs"
 description = "Run all local Kotlin, database, and compiler tests in order"
 run = [
     { task = "test:kotlin" },
-    { task = "test:pglite:bun" },
+    "mise run test:connection-target sqlite-inmemory",
+    "mise run test:connection-target sqlite-file",
+    "mise run test:connection-target d1",
+    "mise run test:connection-target pglite",
     { task = "test:containers" },
     { task = "test:compile" },
 ]

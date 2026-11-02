@@ -24,13 +24,14 @@ Run commands from a mise-activated shell. Otherwise prefix a command with
 | Formatting, Markdown, links, Actions, and static checks | `hk check --all` |
 | The CI-only online checks | `hk check --all --profile ci` |
 | All local test lanes | `mise run test` |
-| Kotlin unit tests | `mise run test:kotlin` |
+| Library unit tests, without a connection target | `mise run test:kotlin` |
 | PGlite contracts on Bun | `mise run test:pglite:bun` |
 | Positive and negative compiler fixtures | `mise run test:compile` |
 | One README connection target contract | `mise run test:connection-target <target>` |
 | Testcontainers-backed connection-target contracts | `mise run test:containers` |
 
-`mise run test` runs the Kotlin, PGlite, container, and compiler-fixture lanes.
+`mise run test` runs library tests, every README connection target, and compiler fixtures.
+It removes external database connection variables before running tests.
 `mise run test:containers` starts disposable database containers through Testcontainers
 and requires a working container runtime.
 
@@ -42,22 +43,6 @@ and `oracle-direct`. `test:containers` runs its eight container-backed targets.
 
 `hk fix --all` applies supported fixes. The pre-commit hook checks staged files
 without fixing or staging them.
-
-## Optional database contracts
-
-`mise run test:kotlin` includes direct-driver contracts when their environment
-variables are present. Tests without their required variables skip themselves.
-
-| Database or provider | Environment variables |
-| --- | --- |
-| PostgreSQL, Neon, Supabase, Aurora PostgreSQL | `KAGIROI_POSTGRES_TEST_URL`, `KAGIROI_NEON_POSTGRES_TEST_URL`, `KAGIROI_SUPABASE_POSTGRES_TEST_URL`, `KAGIROI_AURORA_POSTGRES_TEST_URL` |
-| MySQL, PlanetScale, Aurora MySQL | `KAGIROI_MYSQL_TEST_URL`, `KAGIROI_PLANETSCALE_MYSQL_TEST_URL`, `KAGIROI_AURORA_MYSQL_TEST_URL` |
-| MariaDB | `KAGIROI_MARIADB_TEST_URL` |
-| SQL Server | `KAGIROI_SQLSERVER_TEST_HOST`, `KAGIROI_SQLSERVER_TEST_PORT`, `KAGIROI_SQLSERVER_TEST_DATABASE`, `KAGIROI_SQLSERVER_TEST_USER`, `KAGIROI_SQLSERVER_TEST_PASSWORD` |
-| Oracle | `KAGIROI_ORACLE_TEST_CONNECT_STRING`, `KAGIROI_ORACLE_TEST_USER`, `KAGIROI_ORACLE_TEST_PASSWORD` |
-
-`mise run test:containers` clears those variables and supplies disposable
-container connection details instead.
 
 ## Local Hyperdrive Worker contracts
 

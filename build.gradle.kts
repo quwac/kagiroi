@@ -35,6 +35,37 @@ plugins {
     id("dev.detekt") version "2.0.0-alpha.6"
 }
 
+val connectionTargetProjects = setOf(
+    ":kagiroi-d1-driver",
+    ":kagiroi-mysql-hyperdrive-driver",
+    ":kagiroi-mysql-node-driver",
+    ":kagiroi-node-oracle-driver",
+    ":kagiroi-pglite-driver",
+    ":kagiroi-postgres-hyperdrive-driver",
+    ":kagiroi-postgres-node-driver",
+    ":kagiroi-sqlite-file-driver",
+    ":kagiroi-sqlite-inmemory-driver",
+    ":kagiroi-sqlserver-node-driver",
+    ":integration-tests:mysql-hyperdrive",
+    ":integration-tests:postgres-hyperdrive",
+)
+
+val libraryTests = tasks.register("libraryTests") {
+    group = "verification"
+    description = "Runs library unit tests without connection-target tests"
+}
+
+subprojects {
+    pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+        if (path !in connectionTargetProjects) {
+            libraryTests.configure {
+                dependsOn(tasks.named("jsNodeTest"))
+                dependsOn(tasks.named("wasmJsNodeTest"))
+            }
+        }
+    }
+}
+
 allprojects {
     group = "dev.quwac.kagiroi"
     version = "0.0.1-SNAPSHOT"
