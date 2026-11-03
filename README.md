@@ -11,8 +11,11 @@
   <a href="https://kotlinlang.org/">
     <img src="https://img.shields.io/badge/Kotlin-2.4.21-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.21">
   </a>
-  <a href="#scope">
-    <img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin Multiplatform">
+  <a href="https://kotlinlang.org/docs/js-overview.html">
+    <img src="https://img.shields.io/badge/Kotlin-JS-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin/JS">
+  </a>
+  <a href="https://kotlinlang.org/docs/wasm-overview.html">
+    <img src="https://img.shields.io/badge/Kotlin-Wasm-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin/Wasm">
   </a>
   <a href="https://gradle.org/">
     <img src="https://img.shields.io/badge/Gradle-9.8.2-02303A?logo=gradle&amp;logoColor=white" alt="Gradle 9.8.2">
@@ -25,12 +28,26 @@
   </a>
 </p>
 
-Kagiroi is a Kotlin Multiplatform database toolkit for Kotlin/JS and Kotlin/Wasm.
+Kagiroi (pronounced "kah-gee-roh-ee") is a Kotlin Multiplatform database toolkit
+for Kotlin/JS and Kotlin/Wasm.
 It provides typed schema definitions, parameterized SQL, typed row access, and
 dialect-specific SQL rendering.
 
 Kagiroi is experimental. Check the target dialect's type mappings and supported
 operations before using it in an application.
+
+## Supported databases
+
+| Database | Connection options |
+| --- | --- |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/sqlite/sqlite-original.svg" alt="" width="28"> SQLite | [In memory](#sqlite-in-memory), [file-backed](#sqlite-file-backed) |
+| <img src="https://cf-icons.pages.dev/d1.svg" alt="" width="28"> Cloudflare D1 | [Cloudflare Workers](#cloudflare-d1) |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/postgresql/postgresql-original.svg" alt="" width="28"> PostgreSQL | [Direct](#postgresql-direct), <img src="https://cf-icons.pages.dev/hyperdrive.svg" alt="" width="20"> [Cloudflare Hyperdrive](#postgresql-through-cloudflare-hyperdrive) |
+| <img src="https://raw.githubusercontent.com/electric-sql/pglite/main/docs/public/img/brand/logo-light.svg" alt="" width="80"> PGlite | [PGlite driver](#pglite) |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/mysql/mysql-original.svg" alt="" width="28"> MySQL | [Direct](#mysql-direct), <img src="https://cf-icons.pages.dev/hyperdrive.svg" alt="" width="20"> [Cloudflare Hyperdrive](#mysql-through-cloudflare-hyperdrive) |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/mariadb/mariadb-original.svg" alt="" width="28"> MariaDB | [Direct](#mariadb-direct), <img src="https://cf-icons.pages.dev/hyperdrive.svg" alt="" width="20"> [Cloudflare Hyperdrive](#mariadb-through-cloudflare-hyperdrive) |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/microsoftsqlserver/microsoftsqlserver-original.svg" alt="" width="28"> SQL Server | [Direct](#sql-server-direct) |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/oracle/oracle-original.svg" alt="" width="40"> Oracle Database 23ai+ | [Direct](#oracle-database-23ai-direct) |
 
 ## Start here
 
@@ -42,38 +59,9 @@ operations before using it in an application.
 
 ## Install
 
-Use `kagiroi-bom` as a Gradle platform to align every Kagiroi artifact.
-Then add only the modules your application needs.
-
-```kotlin
-dependencies {
-    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
-    implementation("dev.quwac.kagiroi:kagiroi-sqlite-file-driver")
-}
-```
-
-`kagiroi-bom` contributes version constraints only; it does not add a runtime
-library to the application classpath.
-
-## Modules
-
-| Need | Modules |
-| --- | --- |
-| Core database contracts | `kagiroi-core` |
-| Table definitions and explicit application schema | `kagiroi-schema` |
-| Typed queries, writes, and DDL | `kagiroi-sql` |
-| Optional `kotlinx-datetime` columns | Dialect-specific `kotlinx-datetime` extension |
-| Optional BigNumber columns | Dialect-specific BigNumber extension |
-| Version alignment | `kagiroi-bom` |
-
-`kagiroi-schema` contains tables, columns, expressions, and `schema(...)`.
-`kagiroi-sql` contains statements, parameter rendering, and driver-facing execution
-contracts. Dialects contain SQL syntax and physical types; drivers contain host and
-connection integration.
-
-## Connection targets and execution paths
-
-Choose the dependencies for your connection target.
+Use `kagiroi-bom` as a Gradle platform to align every Kagiroi artifact, and
+choose the dependencies for your connection target. The BOM contributes version
+constraints only; it does not add a runtime library to the application classpath.
 
 ### SQLite, in memory
 
@@ -263,6 +251,22 @@ Optional dialect extensions expose their shared type modules transitively; see
 [Kagiroi type mappings](docs/TYPE_MAPPINGS.md) for the supported types.
 
 They do not provide Kotlin/Native, standalone Wasm, or WASI database clients.
+
+## Modules
+
+| Need | Modules |
+| --- | --- |
+| Core database contracts | `kagiroi-core` |
+| Table definitions and explicit application schema | `kagiroi-schema` |
+| Typed queries, writes, and DDL | `kagiroi-sql` |
+| Optional [`kotlinx-datetime`](https://github.com/Kotlin/kotlinx-datetime) columns | Dialect-specific `kotlinx-datetime` extension |
+| Optional [BigNumber](https://github.com/quwac/big-number) columns | Dialect-specific BigNumber extension |
+| Version alignment | `kagiroi-bom` |
+
+`kagiroi-schema` contains tables, columns, expressions, and `schema(...)`.
+`kagiroi-sql` contains statements, parameter rendering, and driver-facing execution
+contracts. Dialects contain SQL syntax and physical types; drivers contain host and
+connection integration.
 
 ## Scope
 

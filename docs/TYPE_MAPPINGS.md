@@ -195,7 +195,7 @@ byte order; `VARCHAR2(36)` is application-selected.
 
 Install the dialect-specific `kotlinx-datetime` extension for your connection target.
 It exposes `kagiroi-kotlinx-datetime` transitively. SQLite's extension also serves D1.
-See the [README](../README.md#connection-targets-and-execution-paths) for dependency declarations.
+See the [README](../README.md#install) for dependency declarations.
 
 | Kotlin type | SQLite / D1 (`SqliteKotlinxDateTime`) | PostgreSQL (`PostgresKotlinxDateTime`) | MySQL / MariaDB (`MySqlKotlinxDateTime`) | SQL Server (`SqlServerKotlinxDateTime`) |
 | --- | --- | --- | --- | --- |

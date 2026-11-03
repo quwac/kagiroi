@@ -30,7 +30,7 @@ object Users : Table(
 | --- | --- |
 | `string(name)` | `String` |
 | `byte`, `short`, `int`, `long` | `Byte`, `Short`, `Int`, `Long` |
-| `ubyte`, `ushort`, `uint`, `ulong` | Corresponding unsigned type |
+| `ubyte`, `ushort`, `uint`, `ulong` | `UByte`, `UShort`, `UInt`, `ULong` |
 | `float`, `double` | `Float`, `Double` |
 | `boolean`, `bytes` | `Boolean`, `ByteArray` |
 | `uuid`, `instant`, `duration` | `Uuid`, `Instant`, `Duration` |
@@ -51,6 +51,30 @@ object Users : Table(
 
 Modifiers return an updated column. Keep it in a `val` when later declarations need it.
 Call `default(...)` after `transform(...)`.
+
+Use the `comment` table argument and `.comment(...)` column modifier to describe
+tables and columns. PostgreSQL renders them as separate statements when creating
+the table:
+
+```kotlin
+// SQL (PostgreSQL, when createTable runs):
+// CREATE TABLE "contacts" ("email" TEXT NOT NULL)
+// COMMENT ON TABLE "contacts" IS 'Contact details'
+// COMMENT ON COLUMN "contacts"."email" IS 'Primary email address'
+object Contacts : Table("contacts", comment = "Contact details") {
+    val email = string("email").comment("Primary email address")
+}
+```
+
+Table and column comments in `createTable(...)` are handled as follows:
+
+| Database | DDL behavior |
+| --- | --- |
+| PostgreSQL, PGlite | Separate `COMMENT ON TABLE` and `COMMENT ON COLUMN` statements |
+| Oracle Database | Separate `COMMENT ON TABLE` and `COMMENT ON COLUMN` statements |
+| MySQL, MariaDB | `COMMENT` clauses in `CREATE TABLE` |
+| SQL Server | Separate `sys.sp_addextendedproperty` statements using `MS_Description` |
+| SQLite, Cloudflare D1 | Comments remain schema metadata and are omitted from DDL |
 
 ### Index declarations
 
@@ -110,7 +134,8 @@ They cannot use subqueries, aggregates, or windows. Choose `Virtual` or `Stored`
 
 ### Custom types and enums
 
-Map value objects explicitly. Declare stored enum values; never use enum ordinals.
+Map value objects explicitly. Declare stored enum values; never use enum ordinals,
+because adding or reordering entries can change their ordinals and misinterpret stored values.
 
 ```kotlin
 data class AccountId(val value: String)
@@ -346,21 +371,6 @@ Read rows by selected column or alias, not string name. `row[Users.id]` is `Uuid
 | `ORDER BY a ASC/DESC [NULLS FIRST/LAST]` | `a.asc()` / `a.desc()`, then `.nullsFirst()` / `.nullsLast()` |
 | `LIKE ?` | `column like pattern` |
 
-### NULLS FIRST and NULLS LAST
-
-Use an explicit NULL placement when the position of nullable values matters.
-The syntax applies to result, set-operation, window, and `WITHIN GROUP` ordering.
-PostgreSQL/PGlite, SQLite/D1, and Oracle support it; MySQL, MariaDB, and SQL Server reject it.
-
-```kotlin
-// SQL (PostgreSQL/PGlite, SQLite/D1, Oracle):
-// SELECT id FROM users ORDER BY display_name ASC NULLS LAST, email DESC NULLS FIRST
-val orderedUsers = database.select(Users.id)
-    .from(Users)
-    .orderBy(Users.displayName.asc().nullsLast(), Users.email.desc().nullsFirst())
-    .all()
-```
-
 ### DISTINCT, aggregates, and GROUP BY
 
 `distinct()` removes duplicate result rows.
@@ -390,29 +400,6 @@ val totals = database.select(Orders.organizationId, orderCount, totalAmount)
 
 Selected table values in aggregate queries must be group keys or aggregate inputs.
 `count` is `Long`; `sum`, `avg`, `min`, and `max` are normally nullable.
-
-### PostgreSQL-only DISTINCT ON and ILIKE
-
-Import `dev.quwac.kagiroi.postgres.distinctOn` or `ilike` for PostgreSQL/PGlite.
-Start `DISTINCT ON` ordering with its key.
-
-```kotlin
-// SQL (PostgreSQL/PGlite): SELECT DISTINCT ON (organization_id) organization_id, id, email
-//                          FROM users ORDER BY organization_id ASC, id DESC
-// import dev.quwac.kagiroi.postgres.distinctOn
-val newestUsers = database.select(Users.organizationId, Users.id, Users.email)
-    .from(Users)
-    .distinctOn(Users.organizationId)
-    .orderBy(Users.organizationId.asc(), Users.id.desc())
-    .all()
-
-// SQL (PostgreSQL/PGlite): SELECT id FROM users WHERE email ILIKE ?
-// import dev.quwac.kagiroi.postgres.ilike
-val matchingUsers = database.select(Users.id)
-    .from(Users)
-    .where(Users.email ilike "%@example.com")
-    .all()
-```
 
 `isNotDistinctFrom` treats two NULLs as equal. It renders `IS [NOT] DISTINCT FROM`,
 `IS` / `IS NOT`, or the MySQL/MariaDB null-safe equality operator.
@@ -948,25 +935,6 @@ val statements = nonEmptyListOf(
 d1Database.batch(statements)
 ```
 
-## Application schema projection
-
-`schema(...)` declares table roots for schema-aware external tools.
-
-```kotlin
-// import dev.quwac.kagiroi.schema.schema
-object Users : Table("users") {
-    val id = long("id").identity().primaryKey()
-    val displayName = string("display_name").renamedFrom("name")
-    val email = string("email")
-}
-
-val appSchema = schema(Users)
-val projectionJson = appSchema.project().encode()
-```
-
-The versioned projection contains physical objects and `renamedFrom(...)` lineage. It neither
-connects to a database nor generates SQL.
-
 ## Creating tables, indexes, and ALTER TABLE
 
 `database.execute { ... }` runs DDL in source order and does not start a transaction.
@@ -1104,6 +1072,25 @@ Common omissions include vendor-specific query syntax, writable CTE bodies, `MER
 automatic retries, and vendor index options. `intersectAll()` and `exceptAll()` are unavailable on
 SQL Server and SQLite/D1; MariaDB rejects `lag`/`lead` defaults and CTE-scoped DML. Oracle scopes
 CTEs to INSERT ... SELECT only. MySQL/MariaDB use `ON DUPLICATE KEY UPDATE`, not `ON CONFLICT`.
+
+## Application schema projection
+
+`schema(...)` declares table roots for schema-aware external tools.
+
+```kotlin
+// import dev.quwac.kagiroi.schema.schema
+object Users : Table("users") {
+    val id = long("id").identity().primaryKey()
+    val displayName = string("display_name").renamedFrom("name")
+    val email = string("email")
+}
+
+val appSchema = schema(Users)
+val projectionJson = appSchema.project().encode()
+```
+
+The versioned projection contains physical objects and `renamedFrom(...)` lineage. It neither
+connects to a database nor generates SQL.
 
 ## More detail
 
