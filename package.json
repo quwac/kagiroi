@@ -14,7 +14,7 @@
     "@testcontainers/mysql": "12.2.1",
     "@testcontainers/oraclefree": "12.2.1",
     "@testcontainers/postgresql": "12.2.1",
-    "knip": "6.43.0",
+    "knip": "6.44.0",
     "markdownlint-cli2": "0.24.0",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
