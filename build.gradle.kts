@@ -17,6 +17,8 @@ buildscript {
 NpmExtension[rootProject].apply {
     override("@azure/msal-node", "7.1.0")
     override("diff", "8.0.3")
+    override("glob", "14.0.2")
+    override("minimatch", "11.0.1")
     override("serialize-javascript", "7.1.4")
     override("undici", "7.30.1")
 }
