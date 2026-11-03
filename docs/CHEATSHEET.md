@@ -1055,6 +1055,25 @@ transaction; a transaction scope rejects use after its block returns. Concurrent
 database calls may use separate driver connections, while a transaction remains bound to its one
 connection.
 
+For raw scripts that manage their own transaction boundaries, drivers exposing
+`SqlCapabilities.DedicatedSession` provide one connection for the callback:
+
+```kotlin
+database.dedicatedSession {
+    executeRaw("BEGIN")
+    executeRaw("UPDATE users SET active = TRUE")
+    executeRaw("COMMIT")
+}
+```
+
+The caller manages transaction cleanup and must not use the session outside the callback. Dedicated
+sessions are available in the direct PostgreSQL, MySQL, Oracle, PGlite, and file SQLite drivers,
+and in the Kotlin/JS SQL Server driver. They are not D1 or Hyperdrive sessions.
+
+For a Node.js or Bun administrative tool, `d1HttpDatabase(accountId, databaseId, apiToken)` connects
+to the Cloudflare D1 account API. It supports D1 batches but not D1 Sessions; keep the token in an
+environment variable. A Worker uses `D1Database(binding)` instead.
+
 Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for complete parameterized SQL.
 Drivers may report `ConstraintViolation` with `UNIQUE`, `FOREIGN_KEY`, `NOT_NULL`, or `CHECK`.
 

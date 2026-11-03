@@ -16,6 +16,7 @@ import dev.quwac.kagiroi.sql.SqlCapabilities
 import dev.quwac.kagiroi.sql.SqlStreamingMode
 import dev.quwac.kagiroi.sql.TransactionFailure
 import dev.quwac.kagiroi.sql.TransactionIsolation
+import dev.quwac.kagiroi.sql.dedicatedSession
 import dev.quwac.kagiroi.sql.eq
 import dev.quwac.kagiroi.sql.select
 import dev.quwac.kagiroi.sql.transaction
@@ -89,6 +90,24 @@ class NodePostgresDatabaseTest {
                 "UPDATE users SET active = $1",
                 "COMMIT",
             ),
+            pool.sessions.single().executions.map(PostgresStatement::sql),
+        )
+        assertEquals(1, pool.sessions.single().releaseCount)
+    }
+
+    @Test
+    fun leasesOnePhysicalSessionForDedicatedRawWork() = runTest {
+        val pool = FakeNodePostgresPool()
+        val database = NodePostgresDatabase.create(pool)
+
+        database.dedicatedSession {
+            executeRaw("SELECT pg_advisory_lock(1)")
+            executeRaw("SELECT pg_advisory_unlock(1)")
+        }
+
+        assertEquals(1, pool.acquireCount)
+        assertEquals(
+            listOf("SELECT pg_advisory_lock(1)", "SELECT pg_advisory_unlock(1)"),
             pool.sessions.single().executions.map(PostgresStatement::sql),
         )
         assertEquals(1, pool.sessions.single().releaseCount)
@@ -197,6 +216,7 @@ class NodePostgresDatabaseTest {
 
         assertNotNull(database.capability(SqlCapabilities.Sql))
         assertNotNull(database.capability(SqlCapabilities.Transactions))
+        assertNotNull(database.capability(SqlCapabilities.DedicatedSession))
         assertEquals(
             TransactionIsolation.entries.toSet(),
             database.capability(SqlCapabilities.TransactionIsolation)?.supported,

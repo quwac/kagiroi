@@ -28,11 +28,23 @@ private external object SqlServerModule {
     val UniqueIdentifier: dynamic
 }
 
+@JsModule("tedious")
+@JsNonModule
+private external object TediousModule {
+    val Request: dynamic
+    val TYPES: dynamic
+}
+
 internal actual fun createNodeSqlServerPool(settings: NodeSqlServerSettings): NodeSqlServerPool =
     JsNodeSqlServerPool(newPool(SqlServerModule.ConnectionPool, poolConfig(settings)))
 
+internal actual fun createNodeSqlServerPool(connectionString: String): NodeSqlServerPool =
+    JsNodeSqlServerPool(newPool(SqlServerModule.ConnectionPool, connectionString))
+
 private class JsNodeSqlServerPool(private val pool: dynamic) : NodeSqlServerPool {
     private var connection: Promise<dynamic>? = null
+
+    override val supportsDedicatedSession: Boolean = true
 
     override suspend fun execute(statement: SqlServerStatement): SqlServerCommandResult {
         val result = requestResult(request(), statement)
@@ -50,6 +62,16 @@ private class JsNodeSqlServerPool(private val pool: dynamic) : NodeSqlServerPool
         return JsNodeSqlServerTransaction(transaction)
     }
 
+    override suspend fun <T> dedicatedSession(block: suspend (NodeSqlServerSession) -> T): T {
+        val connectedPool = connected()
+        val leased = translate(SqlServerFailureKind.CONNECTION) { acquire(connectedPool).awaitCompletion() }
+        try {
+            return block(JsDedicatedSqlServerSession(leased))
+        } finally {
+            translate(SqlServerFailureKind.CONNECTION) { release(connectedPool, leased) }
+        }
+    }
+
     override suspend fun close() {
         translate(SqlServerFailureKind.CONNECTION) { close(pool).awaitCompletion() }
     }
@@ -63,6 +85,17 @@ private class JsNodeSqlServerPool(private val pool: dynamic) : NodeSqlServerPool
         val pending = connection ?: connect(pool).also { connection = it }
         return translate(SqlServerFailureKind.CONNECTION) { pending.awaitCompletion() }
     }
+}
+
+private class JsDedicatedSqlServerSession(private val connection: dynamic) : NodeSqlServerSession {
+    override suspend fun execute(statement: SqlServerStatement): SqlServerCommandResult {
+        val result = dedicatedRequestResult(connection, statement)
+        return SqlServerCommandResult((result.affectedRows as Number).toLong())
+    }
+
+    override suspend fun query(statement: SqlServerStatement): SqlServerRows = dedicatedRows(
+        dedicatedRequestResult(connection, statement),
+    )
 }
 
 private class JsNodeSqlServerTransaction(private val transaction: dynamic) : NodeSqlServerTransaction {
@@ -90,6 +123,44 @@ private suspend fun requestResult(request: dynamic, statement: SqlServerStatemen
         }
         query(request, statement.sql).awaitCompletion()
     }
+
+private suspend fun dedicatedRequestResult(connection: dynamic, statement: SqlServerStatement): dynamic =
+    translate(SqlServerFailureKind.EXECUTION) {
+        dedicatedRequest(
+            TediousModule.Request,
+            connection,
+            statement.sql,
+            statement.parameters.map(::dedicatedBinding).toTypedArray(),
+        ).awaitCompletion()
+    }
+
+private fun dedicatedRows(result: dynamic): SqlServerRows = translateResult {
+    val columns = result.columns as Array<dynamic>
+    val rows = (result.rows as Array<Array<dynamic>>).map { row ->
+        row.mapIndexed { index, value -> resultValue(value, isExactTediousNumberColumn(columns[index])) }
+    }
+    SqlServerRows(columns.map { it.colName as String }.toList(), rows)
+}
+
+private fun dedicatedBinding(binding: SqlServerBinding): dynamic {
+    val output = js("({})")
+    output.type = tediousBindingType(binding)
+    output.value = bindingValue(binding)
+    return output
+}
+
+private fun tediousBindingType(binding: SqlServerBinding): dynamic = when (binding) {
+    SqlServerBinding.Null, is SqlServerBinding.Text -> TediousModule.TYPES.NVarChar
+    is SqlServerBinding.BooleanValue -> TediousModule.TYPES.Bit
+    is SqlServerBinding.TinyInteger -> TediousModule.TYPES.TinyInt
+    is SqlServerBinding.SmallInteger -> TediousModule.TYPES.SmallInt
+    is SqlServerBinding.Integer -> TediousModule.TYPES.Int
+    is SqlServerBinding.BigInteger -> TediousModule.TYPES.BigInt
+    is SqlServerBinding.Real -> TediousModule.TYPES.Real
+    is SqlServerBinding.FloatValue -> TediousModule.TYPES.Float
+    is SqlServerBinding.Bytes -> TediousModule.TYPES.VarBinary
+    is SqlServerBinding.UuidValue -> TediousModule.TYPES.UniqueIdentifier
+}
 
 private fun rows(result: dynamic): SqlServerRows = translateResult {
     val recordSet = result.recordset
@@ -269,11 +340,51 @@ private fun begin(transaction: dynamic, isolation: dynamic): Promise<dynamic> =
 private fun query(request: dynamic, sql: String): Promise<dynamic> = js("request.query(sql)")
 
 @Suppress("UnusedParameter")
+private fun acquire(pool: dynamic): Promise<dynamic> = js("pool.acquire()")
+
+@Suppress("UnusedParameter")
+private fun release(pool: dynamic, connection: dynamic) {
+    js("pool.release(connection)")
+}
+
+@Suppress("UnusedParameter")
+private fun dedicatedRequest(
+    requestConstructor: dynamic,
+    connection: dynamic,
+    sql: String,
+    parameters: Array<dynamic>,
+): Promise<dynamic> = js(
+    """
+    new Promise((resolve, reject) => {
+      const rows = [];
+      let columns = [];
+      const request = new requestConstructor(sql, (error, rowCount) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ affectedRows: rowCount || 0, columns, rows });
+        }
+      });
+      request.on('columnMetadata', metadata => { columns = metadata; });
+      request.on('row', row => { rows.push(row.map(column => column.value)); });
+      parameters.forEach((parameter, index) => request.addParameter('kb' + (index + 1), parameter.type, parameter.value));
+      if (parameters.length === 0) connection.execSqlBatch(request);
+      else connection.execSql(request);
+    })
+    """,
+)
+
+@Suppress("UnusedParameter")
 private fun columnNames(result: dynamic): Array<String> = js("result.columns[0].map(column => column.name)")
 
 @Suppress("UnusedParameter")
 private fun isExactNumberColumn(column: dynamic): Boolean = js(
     "['decimal', 'numeric', 'money', 'smallmoney'].includes(String(column.type.declaration).toLowerCase())",
+)
+
+@Suppress("UnusedParameter")
+private fun isExactTediousNumberColumn(column: dynamic): Boolean = js(
+    "['decimal', 'numeric', 'money', 'smallmoney'].includes(String(column.type.name).toLowerCase())",
 )
 
 @Suppress("UnusedParameter")

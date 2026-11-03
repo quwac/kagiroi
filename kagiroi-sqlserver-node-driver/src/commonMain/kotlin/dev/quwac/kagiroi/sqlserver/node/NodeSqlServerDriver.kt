@@ -37,7 +37,17 @@ internal interface NodeSqlServerTransaction : NodeSqlServerSession {
 }
 
 internal interface NodeSqlServerPool : NodeSqlServerSession {
+    val supportsDedicatedSession: Boolean
+
     suspend fun begin(isolation: NodeSqlServerIsolation?): NodeSqlServerTransaction
+
+    /**
+     * Runs [block] on one checked-out physical connection without starting a transaction.
+     *
+     * This is intentionally separate from [begin]: callers that execute a SQL script with its
+     * own BEGIN/COMMIT must retain the connection while leaving transaction boundaries in SQL.
+     */
+    suspend fun <T> dedicatedSession(block: suspend (NodeSqlServerSession) -> T): T
 
     suspend fun close()
 }
@@ -49,3 +59,5 @@ internal enum class NodeSqlServerIsolation {
 }
 
 internal expect fun createNodeSqlServerPool(settings: NodeSqlServerSettings): NodeSqlServerPool
+
+internal expect fun createNodeSqlServerPool(connectionString: String): NodeSqlServerPool

@@ -54,7 +54,7 @@ class D1Database internal constructor(
         SqlCapabilities.Returning -> ReturningCapability as C
         SqlCapabilities.Streaming -> SqlStreamingCapability(SqlStreamingMode.BUFFERED) as C
         D1Capabilities.Batch -> D1BatchCapability as C
-        D1Capabilities.Sessions -> D1SessionsCapability as C
+        D1Capabilities.Sessions -> if (endpoint.supportsSessions) D1SessionsCapability as C else null
         else -> null
     }
 
@@ -81,6 +81,7 @@ class D1Database internal constructor(
 
     fun session(start: D1SessionStart = D1SessionStart.Unconstrained): D1Session {
         ensureOpen()
+        check(endpoint.supportsSessions) { "D1 Sessions are not available for this D1 endpoint" }
         val sessionEndpoint = endpoint.session(start)
         return D1Session(D1Execution(sessionEndpoint, execution.codecs, ::ensureOpen), sessionEndpoint, dialect)
     }

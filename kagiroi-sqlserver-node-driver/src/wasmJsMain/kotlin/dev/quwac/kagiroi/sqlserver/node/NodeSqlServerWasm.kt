@@ -85,8 +85,13 @@ internal external interface NativeColumnType : JsAny {
 internal actual fun createNodeSqlServerPool(settings: NodeSqlServerSettings): NodeSqlServerPool =
     WasmNodeSqlServerPool(createPool(sqlServerModule.ConnectionPool, poolConfig(settings)))
 
+internal actual fun createNodeSqlServerPool(connectionString: String): NodeSqlServerPool =
+    WasmNodeSqlServerPool(createConnectionStringPool(sqlServerModule.ConnectionPool, connectionString))
+
 private class WasmNodeSqlServerPool(private val pool: NativePool) : NodeSqlServerPool {
     private var connection: Promise<JsAny?>? = null
+
+    override val supportsDedicatedSession: Boolean = false
 
     override suspend fun execute(statement: SqlServerStatement): SqlServerCommandResult =
         SqlServerCommandResult(affectedRows(requestResult(request(), statement)))
@@ -101,6 +106,9 @@ private class WasmNodeSqlServerPool(private val pool: NativePool) : NodeSqlServe
         }
         return WasmNodeSqlServerTransaction(transaction)
     }
+
+    override suspend fun <T> dedicatedSession(block: suspend (NodeSqlServerSession) -> T): T =
+        error("Dedicated SQL Server sessions are currently available on Kotlin/JS only")
 
     override suspend fun close() {
         translate(SqlServerFailureKind.CONNECTION) { pool.close().awaitCompletion() }

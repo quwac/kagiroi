@@ -36,6 +36,7 @@ kotlin {
         }
         jsMain.dependencies {
             implementation(npm("mssql", "12.7.1"))
+            implementation(npm("tedious", "20.3.8"))
         }
         wasmJsMain.dependencies {
             implementation(npm("mssql", "12.7.1"))

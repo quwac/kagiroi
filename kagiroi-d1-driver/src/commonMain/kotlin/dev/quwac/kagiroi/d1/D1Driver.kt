@@ -24,6 +24,8 @@ internal class D1DriverException(
 ) : Exception(message, cause)
 
 internal interface D1Endpoint {
+    val supportsSessions: Boolean get() = true
+
     suspend fun execute(statement: D1Statement): D1ExecuteMetadata
 
     suspend fun query(statement: D1Statement): D1RawRows

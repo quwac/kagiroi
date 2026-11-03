@@ -9,6 +9,8 @@ import dev.quwac.kagiroi.sql.ConstraintViolation
 import dev.quwac.kagiroi.sql.DatabaseClosed
 import dev.quwac.kagiroi.sql.DatabaseError
 import dev.quwac.kagiroi.sql.DatabaseErrorMetadata
+import dev.quwac.kagiroi.sql.DedicatedSqlSession
+import dev.quwac.kagiroi.sql.DedicatedSqlSessionCapability
 import dev.quwac.kagiroi.sql.ExecuteResult
 import dev.quwac.kagiroi.sql.ExecutionFailure
 import dev.quwac.kagiroi.sql.InvalidBinding
@@ -129,6 +131,11 @@ class FileSqliteDatabase internal constructor(
     private var activeOperations = 0
     private var drainWaiter: CompletableDeferred<Unit>? = null
     private var closeCompletion: CompletableDeferred<Unit>? = null
+    private val dedicatedSessionCapability = object : DedicatedSqlSessionCapability {
+        override suspend fun <T> use(block: suspend DedicatedSqlSession.() -> T): T = withDedicatedSession {
+            block(LeasedSession())
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <C : DatabaseCapability> capability(key: CapabilityKey<C>): C? = when (key) {
@@ -137,6 +144,7 @@ class FileSqliteDatabase internal constructor(
         SqlCapabilities.Transactions -> TransactionCapability as C
         SqlCapabilities.Savepoints -> SavepointCapability as C
         SqlCapabilities.Streaming -> SqlStreamingCapability(SqlStreamingMode.BUFFERED) as C
+        SqlCapabilities.DedicatedSession -> dedicatedSessionCapability as C
         else -> null
     }
 
@@ -278,6 +286,21 @@ class FileSqliteDatabase internal constructor(
     }
 
     private suspend fun <T> withDatabaseAccess(block: () -> T): T {
+        ensureOutsideTransactionScope()
+        enterOperation()
+        var accessAcquired = false
+        try {
+            access.lock()
+            accessAcquired = true
+            ensureOpen()
+            return block()
+        } finally {
+            if (accessAcquired) access.unlock()
+            exitOperation()
+        }
+    }
+
+    private suspend fun <T> withDedicatedSession(block: suspend () -> T): T {
         ensureOutsideTransactionScope()
         enterOperation()
         var accessAcquired = false
@@ -434,6 +457,33 @@ class FileSqliteDatabase internal constructor(
 
         private fun requireActive() {
             if (!active) throw ExecutionFailure("Transaction scope is no longer active")
+        }
+    }
+
+    private inner class LeasedSession : DedicatedSqlSession {
+        override val dialect: SqlDialect = this@FileSqliteDatabase.dialect
+
+        override suspend fun execute(statement: RenderedSql): ExecuteResult = this@FileSqliteDatabase.executeEngine(
+            statement.sql,
+            this@FileSqliteDatabase.bindings(statement.parameters),
+        )
+
+        override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
+            this@FileSqliteDatabase.queryEngine(
+                statement.sql,
+                this@FileSqliteDatabase.bindings(statement.parameters),
+            ).forEach { row ->
+                emit(this@FileSqliteDatabase.toSqlRow(row, columns))
+            }
+        }
+
+        override suspend fun executeRaw(sql: String, parameters: List<Any?>): ExecuteResult =
+            this@FileSqliteDatabase.executeEngine(sql, this@FileSqliteDatabase.rawBindings(parameters))
+
+        override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
+            this@FileSqliteDatabase.queryEngine(sql, this@FileSqliteDatabase.rawBindings(parameters)).forEach { row ->
+                emit(rawSqlRow(row.columnNames, row.values.map(this@FileSqliteDatabase::rawValue)))
+            }
         }
     }
 }
