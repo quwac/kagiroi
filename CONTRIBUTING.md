@@ -27,7 +27,7 @@ Run commands from a mise-activated shell. Otherwise prefix a command with
 | Library unit tests, without a connection target | `mise run test:kotlin` |
 | PGlite contracts on Bun | `mise run test:pglite:bun` |
 | Positive and negative compiler fixtures | `mise run test:compile` |
-| One README connection target contract | `mise run test:connection-target <target>` |
+| One connection target contract | `mise run test:connection-target <target>` |
 | Testcontainers-backed connection-target contracts | `mise run test:containers` |
 
 `mise run test` runs library tests, every README connection target, and compiler fixtures.
@@ -35,11 +35,24 @@ It removes external database connection variables before running tests.
 `mise run test:containers` starts disposable database containers through Testcontainers
 and requires a working container runtime.
 
-Run one connection target with `mise run test:connection-target <target>`. The
-target names mirror the README: `sqlite-inmemory`, `sqlite-file`, `d1`,
-`postgres-direct`, `postgres-hyperdrive`, `pglite`, `mysql-direct`,
-`mysql-hyperdrive`, `mariadb-direct`, `mariadb-hyperdrive`, `sqlserver-direct`,
-and `oracle-direct`. `test:containers` runs its eight container-backed targets.
+Run one connection target with `mise run test:connection-target <target>`:
+
+| Connection target | Test target |
+| --- | --- |
+| SQLite, in memory | `sqlite-inmemory` |
+| SQLite, file-backed | `sqlite-file` |
+| Cloudflare D1 | `d1` |
+| PostgreSQL, direct | `postgres-direct` |
+| PostgreSQL through Cloudflare Hyperdrive | `postgres-hyperdrive` |
+| PGlite | `pglite` |
+| MySQL, direct | `mysql-direct` |
+| MySQL through Cloudflare Hyperdrive | `mysql-hyperdrive` |
+| MariaDB, direct | `mariadb-direct` |
+| MariaDB through Cloudflare Hyperdrive | `mariadb-hyperdrive` |
+| SQL Server, direct | `sqlserver-direct` |
+| Oracle Database 23ai+, direct | `oracle-direct` |
+
+`test:containers` runs its eight container-backed targets.
 
 `hk fix --all` applies supported fixes. The pre-commit hook checks staged files
 without fixing or staging them.
