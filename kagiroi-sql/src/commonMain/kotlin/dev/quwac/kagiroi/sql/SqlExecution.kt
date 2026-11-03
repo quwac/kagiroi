@@ -65,6 +65,20 @@ interface SqlExecution {
     fun queryRaw(sql: String, parameters: List<Any?> = emptyList()): Flow<RawSqlRow>
 }
 
+/**
+ * Raw SQL execution bound to one dedicated driver session for the duration of a callback.
+ *
+ * The driver retains connection ownership and host-specific values. The callback only receives
+ * Kagiroi's regular SQL execution surface.
+ */
+@SqlExecutionDsl
+interface DedicatedSqlSession : SqlExecution
+
+/** A driver capability that runs a callback on one physical SQL session. */
+interface DedicatedSqlSessionCapability : DatabaseCapability {
+    suspend fun <T> use(block: suspend DedicatedSqlSession.() -> T): T
+}
+
 /** Prevents an outer database receiver from being used as an implicit nested transaction entry point. */
 @DslMarker
 annotation class SqlExecutionDsl
@@ -125,6 +139,14 @@ object SqlCapabilities {
     val ReturningInto = CapabilityKey<ReturningIntoCapability>("returning-into")
     val TransactionIsolation = CapabilityKey<TransactionIsolationCapability>("transaction-isolation")
     val Streaming = CapabilityKey<SqlStreamingCapability>("streaming")
+    val DedicatedSession = CapabilityKey<DedicatedSqlSessionCapability>("dedicated-session")
+}
+
+/** Runs [block] on one driver-owned session when the selected driver supports it. */
+suspend fun <T> SqlDatabase.dedicatedSession(block: suspend DedicatedSqlSession.() -> T): T {
+    val capability = capability(SqlCapabilities.DedicatedSession)
+        ?: throw UnsupportedCapability(SqlCapabilities.DedicatedSession.name)
+    return capability.use(block)
 }
 
 /** Starts an explicitly isolated transaction when the database advertises that capability. */

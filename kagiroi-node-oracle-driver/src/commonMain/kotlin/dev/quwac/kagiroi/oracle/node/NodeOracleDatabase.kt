@@ -25,6 +25,8 @@ import dev.quwac.kagiroi.sql.DatabaseClosed
 import dev.quwac.kagiroi.sql.DatabaseError
 import dev.quwac.kagiroi.sql.DatabaseErrorMetadata
 import dev.quwac.kagiroi.sql.DeadlockFailure
+import dev.quwac.kagiroi.sql.DedicatedSqlSession
+import dev.quwac.kagiroi.sql.DedicatedSqlSessionCapability
 import dev.quwac.kagiroi.sql.ExecuteResult
 import dev.quwac.kagiroi.sql.ExecutionFailure
 import dev.quwac.kagiroi.sql.InvalidBinding
@@ -185,6 +187,11 @@ class NodeOracleDatabase private constructor(
             block: suspend SqlTransaction.() -> T,
         ): T = runTransaction(isolation, block)
     }
+    private val dedicatedSessionCapability = object : DedicatedSqlSessionCapability {
+        override suspend fun <T> use(block: suspend DedicatedSqlSession.() -> T): T = withSession { execution ->
+            block(LeasedSession(execution))
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <C : DatabaseCapability> capability(key: CapabilityKey<C>): C? = when (key) {
@@ -194,6 +201,7 @@ class NodeOracleDatabase private constructor(
         SqlCapabilities.ReturningInto -> ReturningIntoCapability as C
         SqlCapabilities.TransactionIsolation -> isolationCapability as C
         SqlCapabilities.Streaming -> SqlStreamingCapability(SqlStreamingMode.BUFFERED) as C
+        SqlCapabilities.DedicatedSession -> dedicatedSessionCapability as C
         else -> null
     }
 
@@ -459,6 +467,23 @@ class NodeOracleDatabase private constructor(
         }
     }
 
+    private inner class LeasedSession(private val execution: OracleExecution) : DedicatedSqlSession {
+        override val dialect: SqlDialect = this@NodeOracleDatabase.dialect
+
+        override suspend fun execute(statement: RenderedSql): ExecuteResult = execution.execute(statement)
+
+        override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
+            for (row in execution.queryRows(statement, columns)) emit(row)
+        }
+
+        override suspend fun executeRaw(sql: String, parameters: List<Any?>): ExecuteResult =
+            execution.executeRaw(sql, parameters)
+
+        override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
+            for (row in execution.queryRawRows(sql, parameters)) emit(row)
+        }
+    }
+
     internal companion object {
         fun create(
             pool: NodeOraclePool,
@@ -571,10 +596,10 @@ private class OracleExecution(
 
     private fun toReturningStatement(statement: RenderedSql, returning: SqlDmlReturningInto): OracleStatement =
         toStatement(statement).copy(
-        returning = returning.columns.zip(returning.parameterNames).map { (column, name) ->
-            OracleReturningBinding(name, returningKind(column), returningMaxSize(column))
-        },
-    )
+            returning = returning.columns.zip(returning.parameterNames).map { (column, name) ->
+                OracleReturningBinding(name, returningKind(column), returningMaxSize(column))
+            },
+        )
 
     private fun returningKind(column: Column<*>): OracleReturningKind = when (typeRegistry.typeOf(column.storageType)) {
         OracleType.VARCHAR2,
@@ -689,8 +714,8 @@ private fun <K : Any, V : Any> mapOfNotNull(key: K, value: V?): Map<K, V> = if (
     emptyMap()
 } else {
     mapOf(
-    key to value,
-)
+        key to value,
+    )
 }
 
 private const val DEFAULT_MAX_CONNECTIONS = 10

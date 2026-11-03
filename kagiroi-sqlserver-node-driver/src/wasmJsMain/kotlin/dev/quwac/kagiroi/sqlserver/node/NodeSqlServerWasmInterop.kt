@@ -60,6 +60,9 @@ internal fun poolConfig(
 
 internal fun createPool(constructor: JsAny, config: JsAny): NativePool = js("new constructor(config)")
 
+internal fun createConnectionStringPool(constructor: JsAny, connectionString: String): NativePool =
+    js("new constructor(connectionString)")
+
 internal fun isolationLevel(levels: JsAny, isolation: String?): JsAny? = js(
     "isolation == null ? null : levels[isolation]",
 )

@@ -12,6 +12,8 @@ import dev.quwac.kagiroi.sql.DatabaseClosed
 import dev.quwac.kagiroi.sql.DatabaseError
 import dev.quwac.kagiroi.sql.DatabaseErrorMetadata
 import dev.quwac.kagiroi.sql.DeadlockFailure
+import dev.quwac.kagiroi.sql.DedicatedSqlSession
+import dev.quwac.kagiroi.sql.DedicatedSqlSessionCapability
 import dev.quwac.kagiroi.sql.ExecuteResult
 import dev.quwac.kagiroi.sql.ExecutionFailure
 import dev.quwac.kagiroi.sql.InvalidBinding
@@ -177,6 +179,16 @@ internal data class NodeSqlServerSettings(
 fun NodeSqlServerDatabase(configure: NodeSqlServerDatabaseConfiguration.() -> Unit): NodeSqlServerDatabase =
     NodeSqlServerDatabase.createConfigured(NodeSqlServerDatabaseConfiguration().apply(configure))
 
+/** Opens a pooled SQL Server database from the mssql driver's connection string format. */
+fun NodeSqlServerDatabase(connectionString: String): NodeSqlServerDatabase {
+    require(connectionString.isNotBlank()) { "SQL Server connection string must not be blank" }
+    return NodeSqlServerDatabase.create(
+        createNodeSqlServerPool(connectionString),
+        SqlServerStandardTypes.typeCodecs,
+        SqlServerDialect,
+    )
+}
+
 /** Kagiroi SQL Server database with a private node-mssql pool and explicit transaction scopes. */
 class NodeSqlServerDatabase private constructor(
     private val pool: NodeSqlServerPool,
@@ -194,6 +206,11 @@ class NodeSqlServerDatabase private constructor(
             block: suspend SqlTransaction.() -> T,
         ): T = runTransaction(isolation, block)
     }
+    private val dedicatedSessionCapability = object : DedicatedSqlSessionCapability {
+        override suspend fun <T> use(block: suspend DedicatedSqlSession.() -> T): T = pool.dedicatedSession { session ->
+            block(LeasedSession(SqlServerExecution(session, typeCodecs)))
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <C : DatabaseCapability> capability(key: CapabilityKey<C>): C? = when (key) {
@@ -203,6 +220,7 @@ class NodeSqlServerDatabase private constructor(
         SqlCapabilities.Output -> OutputCapability as C
         SqlCapabilities.TransactionIsolation -> isolationCapability as C
         SqlCapabilities.Streaming -> SqlStreamingCapability(SqlStreamingMode.BUFFERED) as C
+        SqlCapabilities.DedicatedSession -> if (pool.supportsDedicatedSession) dedicatedSessionCapability as C else null
         else -> null
     }
 
@@ -390,6 +408,23 @@ class NodeSqlServerDatabase private constructor(
 
         private fun requireActive() {
             if (!active) throw ExecutionFailure("Transaction scope is no longer active")
+        }
+    }
+
+    private inner class LeasedSession(private val execution: SqlServerExecution) : DedicatedSqlSession {
+        override val dialect: SqlDialect = this@NodeSqlServerDatabase.dialect
+
+        override suspend fun execute(statement: RenderedSql): ExecuteResult = execution.execute(statement)
+
+        override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
+            for (row in execution.queryRows(statement, columns)) emit(row)
+        }
+
+        override suspend fun executeRaw(sql: String, parameters: List<Any?>): ExecuteResult =
+            execution.executeRaw(sql, parameters)
+
+        override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
+            for (row in execution.queryRawRows(sql, parameters)) emit(row)
         }
     }
 

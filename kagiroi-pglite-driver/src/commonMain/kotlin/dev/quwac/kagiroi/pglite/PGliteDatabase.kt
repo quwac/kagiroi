@@ -16,6 +16,8 @@ import dev.quwac.kagiroi.sql.DatabaseClosed
 import dev.quwac.kagiroi.sql.DatabaseError
 import dev.quwac.kagiroi.sql.DatabaseErrorMetadata
 import dev.quwac.kagiroi.sql.DeadlockFailure
+import dev.quwac.kagiroi.sql.DedicatedSqlSession
+import dev.quwac.kagiroi.sql.DedicatedSqlSessionCapability
 import dev.quwac.kagiroi.sql.ExecuteResult
 import dev.quwac.kagiroi.sql.ExecutionFailure
 import dev.quwac.kagiroi.sql.InvalidBinding
@@ -102,6 +104,11 @@ class PGliteDatabase private constructor(
             block: suspend SqlTransaction.() -> T,
         ): T = runTransaction(isolation, block)
     }
+    private val dedicatedSessionCapability = object : DedicatedSqlSessionCapability {
+        override suspend fun <T> use(block: suspend DedicatedSqlSession.() -> T): T = locked {
+            block(LeasedSession())
+        }
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun <C : DatabaseCapability> capability(key: CapabilityKey<C>): C? = when (key) {
@@ -111,6 +118,7 @@ class PGliteDatabase private constructor(
         SqlCapabilities.Savepoints -> SavepointCapability as C
         SqlCapabilities.TransactionIsolation -> isolationCapability as C
         SqlCapabilities.Streaming -> SqlStreamingCapability(SqlStreamingMode.BUFFERED) as C
+        SqlCapabilities.DedicatedSession -> dedicatedSessionCapability as C
         else -> null
     }
 
@@ -302,6 +310,24 @@ class PGliteDatabase private constructor(
 
         private fun requireActive() {
             if (!active) throw ExecutionFailure("Transaction scope is no longer active")
+        }
+    }
+
+    private inner class LeasedSession : DedicatedSqlSession {
+        override val dialect: SqlDialect = this@PGliteDatabase.dialect
+
+        override suspend fun execute(statement: RenderedSql): ExecuteResult =
+            this@PGliteDatabase.execution.execute(statement)
+
+        override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
+            for (row in this@PGliteDatabase.execution.queryRows(statement, columns)) emit(row)
+        }
+
+        override suspend fun executeRaw(sql: String, parameters: List<Any?>): ExecuteResult =
+            this@PGliteDatabase.execution.executeRaw(sql, parameters)
+
+        override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
+            for (row in this@PGliteDatabase.execution.queryRawRows(sql, parameters)) emit(row)
         }
     }
 
