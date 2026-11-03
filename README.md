@@ -62,8 +62,8 @@ library to the application classpath.
 | Core database contracts | `kagiroi-core` |
 | Table definitions and explicit application schema | `kagiroi-schema` |
 | Typed queries, writes, and DDL | `kagiroi-sql` |
-| Optional `kotlinx-datetime` columns | `kagiroi-kotlinx-datetime` and a dialect extension |
-| Optional BigNumber columns | `kagiroi-quwac-bignumber` and a dialect extension |
+| Optional `kotlinx-datetime` columns | Dialect-specific `kotlinx-datetime` extension |
+| Optional BigNumber columns | Dialect-specific BigNumber extension |
 | Version alignment | `kagiroi-bom` |
 
 `kagiroi-schema` contains tables, columns, expressions, and `schema(...)`.
@@ -73,20 +73,194 @@ connection integration.
 
 ## Connection targets and execution paths
 
-| Connection target / execution path | Dialect module | Driver module | Test target |
-| --- | --- | --- | --- |
-| SQLite, in memory | `kagiroi-sqlite` | `kagiroi-sqlite-inmemory-driver` | `sqlite-inmemory` |
-| SQLite, file-backed | `kagiroi-sqlite` | `kagiroi-sqlite-file-driver` | `sqlite-file` |
-| Cloudflare D1 | `kagiroi-sqlite` | `kagiroi-d1-driver` | `d1` |
-| PostgreSQL, direct | `kagiroi-postgres` | `kagiroi-postgres-node-driver` | `postgres-direct` |
-| PostgreSQL through Cloudflare Hyperdrive | `kagiroi-postgres` | `kagiroi-postgres-hyperdrive-driver` | `postgres-hyperdrive` |
-| PGlite | PostgreSQL dialect | `kagiroi-pglite-driver` | `pglite` |
-| MySQL, direct | `kagiroi-mysql` | `kagiroi-mysql-node-driver` | `mysql-direct` |
-| MySQL through Cloudflare Hyperdrive | `kagiroi-mysql` | `kagiroi-mysql-hyperdrive-driver` | `mysql-hyperdrive` |
-| MariaDB, direct | `kagiroi-mariadb` | `kagiroi-mysql-node-driver` | `mariadb-direct` |
-| MariaDB through Cloudflare Hyperdrive | `kagiroi-mariadb` | `kagiroi-mysql-hyperdrive-driver` | `mariadb-hyperdrive` |
-| SQL Server, direct | `kagiroi-sqlserver` | `kagiroi-sqlserver-node-driver` | `sqlserver-direct` |
-| Oracle Database 23ai+, direct | `kagiroi-oracle` | `kagiroi-node-oracle-driver` | `oracle-direct` |
+Choose the dependencies for your connection target.
+
+### SQLite, in memory
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-sqlite-inmemory-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-quwac-bignumber")
+}
+```
+
+### SQLite, file-backed
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-sqlite-file-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-quwac-bignumber")
+}
+```
+
+### Cloudflare D1
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-d1-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlite-quwac-bignumber")
+}
+```
+
+### PostgreSQL, direct
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-postgres-node-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-quwac-bignumber")
+}
+```
+
+### PostgreSQL through Cloudflare Hyperdrive
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-postgres-hyperdrive-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-quwac-bignumber")
+}
+```
+
+### PGlite
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-pglite-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-postgres-quwac-bignumber")
+}
+```
+
+### MySQL, direct
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-mysql-node-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-quwac-bignumber")
+}
+```
+
+### MySQL through Cloudflare Hyperdrive
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-mysql-hyperdrive-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-quwac-bignumber")
+}
+```
+
+### MariaDB, direct
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-mariadb")
+    implementation("dev.quwac.kagiroi:kagiroi-mysql-node-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-quwac-bignumber")
+}
+```
+
+### MariaDB through Cloudflare Hyperdrive
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-mariadb")
+    implementation("dev.quwac.kagiroi:kagiroi-mysql-hyperdrive-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-mysql-quwac-bignumber")
+}
+```
+
+### SQL Server, direct
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-sqlserver-node-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlserver-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-sqlserver-quwac-bignumber")
+}
+```
+
+### Oracle Database 23ai+, direct
+
+```kotlin
+dependencies {
+    implementation(platform("dev.quwac.kagiroi:kagiroi-bom:<version>"))
+    implementation("dev.quwac.kagiroi:kagiroi-node-oracle-driver")
+
+    // Optional: kotlinx-datetime columns
+    // implementation("dev.quwac.kagiroi:kagiroi-oracle-kotlinx-datetime")
+
+    // Optional: BigNumber columns
+    // implementation("dev.quwac.kagiroi:kagiroi-oracle-quwac-bignumber")
+}
+```
+
+Each driver exposes its dialect and the core SQL and schema modules transitively.
+MariaDB also requires its own dialect module alongside the MySQL driver.
+Optional dialect extensions expose their shared type modules transitively; see
+[Kagiroi type mappings](docs/TYPE_MAPPINGS.md) for the supported types.
 
 They do not provide Kotlin/Native, standalone Wasm, or WASI database clients.
 
