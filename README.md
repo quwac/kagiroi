@@ -41,7 +41,7 @@ operations before using it in an application.
 | Database | Connection options |
 | --- | --- |
 | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/sqlite/sqlite-original.svg" alt="" width="28"> SQLite | [In memory](#sqlite-in-memory), [file-backed](#sqlite-file-backed) |
-| <img src="https://cf-icons.pages.dev/d1.svg" alt="" width="28"> Cloudflare D1 | [Cloudflare Workers](#cloudflare-d1) |
+| <img src="https://cf-icons.pages.dev/d1.svg" alt="" width="28"> Cloudflare D1 | <img src="https://cf-icons.pages.dev/workers.svg" alt="" width="20"> [Cloudflare Workers](#cloudflare-d1) |
 | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/postgresql/postgresql-original.svg" alt="" width="28"> PostgreSQL | [Direct](#postgresql-direct), <img src="https://cf-icons.pages.dev/hyperdrive.svg" alt="" width="20"> [Cloudflare Hyperdrive](#postgresql-through-cloudflare-hyperdrive) |
 | <img src="https://raw.githubusercontent.com/electric-sql/pglite/main/docs/public/img/brand/logo-light.svg" alt="" width="80"> PGlite | [PGlite driver](#pglite) |
 | <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.16.0/icons/mysql/mysql-original.svg" alt="" width="28"> MySQL | [Direct](#mysql-direct), <img src="https://cf-icons.pages.dev/hyperdrive.svg" alt="" width="20"> [Cloudflare Hyperdrive](#mysql-through-cloudflare-hyperdrive) |
