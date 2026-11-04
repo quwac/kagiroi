@@ -22,32 +22,112 @@ import kotlin.uuid.Uuid
 
 /** A value and an explicit mssql parameter type before it crosses the JS host boundary. */
 sealed interface SqlServerBinding {
+    /** Represents null. */
     data object Null : SqlServerBinding
+
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : SqlServerBinding
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : SqlServerBinding
+
+    /** Represents tiny integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class TinyInteger(val decimal: String) : SqlServerBinding
+
+    /** Represents small integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class SmallInteger(val decimal: String) : SqlServerBinding
+
+    /** Represents integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Integer(val decimal: String) : SqlServerBinding
+
+    /** Represents big integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class BigInteger(val decimal: String) : SqlServerBinding
+
+    /** Represents real.
+     *
+     * @property value Value associated with value.
+     */
     data class Real(val value: Double) : SqlServerBinding
+
+    /** Represents float value.
+     *
+     * @property value Value associated with value.
+     */
     data class FloatValue(val value: Double) : SqlServerBinding
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : SqlServerBinding
+
+    /** Represents uuid value.
+     *
+     * @property value Value associated with value.
+     */
     data class UuidValue(val value: Uuid) : SqlServerBinding
 }
 
 /** Host values normalized before Kotlin type conversion; exact numerics remain decimal text. */
 sealed interface SqlServerScalar {
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : SqlServerScalar
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : SqlServerScalar
+
+    /** Represents integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Integer(val decimal: String) : SqlServerScalar
+
+    /** Represents real.
+     *
+     * @property value Value associated with value.
+     */
     data class Real(val value: Double) : SqlServerScalar
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : SqlServerScalar
 }
 
+/** A scalar value returned by SQL Server.
+ *
+ * @property value decoded value, or `null` for SQL `NULL`.
+ */
 data class SqlServerResultValue(val value: SqlServerScalar?)
 
 /** SQL Server conversion that keeps mssql and JavaScript values outside the public API. */
 class SqlServerValueCodec(private val codecs: SqlTypeCodecRegistry) {
+    /** Provides the binding result. */
     fun binding(value: Any?, expression: SqlExpression<*>? = null): SqlServerBinding {
         if (value == null) return SqlServerBinding.Null
         val columnType = expression?.storageType
@@ -55,6 +135,7 @@ class SqlServerValueCodec(private val codecs: SqlTypeCodecRegistry) {
         return bindScalar(encoded?.value ?: value, encoded?.storageType ?: columnType)
     }
 
+    /** Decodes the decode result. */
     @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
     fun decode(column: SqlExpression<*>, result: SqlServerResultValue): Any? {
         val scalar = result.value
@@ -108,6 +189,7 @@ class SqlServerValueCodec(private val codecs: SqlTypeCodecRegistry) {
         }
     }
 
+    /** Provides the raw value result. */
     fun rawValue(result: SqlServerResultValue): Any? = when (val scalar = result.value) {
         null -> null
         is SqlServerScalar.BooleanValue -> scalar.value

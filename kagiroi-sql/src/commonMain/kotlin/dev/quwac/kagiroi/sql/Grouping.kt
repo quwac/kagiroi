@@ -6,7 +6,10 @@ import dev.quwac.kagiroi.schema.GroupByElement
 import dev.quwac.kagiroi.schema.GroupingItem
 import dev.quwac.kagiroi.schema.SqlExpression
 
-/** A parenthesized list which is one grouping unit inside `ROLLUP`, `CUBE`, or a grouping set. */
+/** A parenthesized list which is one grouping unit inside `ROLLUP`, `CUBE`, or a grouping set.
+ *
+ * @property expressions expressions retained in the composite grouping unit.
+ */
 class CompositeGroupingItem internal constructor(val expressions: List<SqlExpression<*>>) : GroupingItem {
     init {
         require(expressions.size >= 2) { "A composite grouping item requires at least two expressions" }
@@ -20,7 +23,10 @@ fun group(
     vararg additional: SqlExpression<*>,
 ): CompositeGroupingItem = CompositeGroupingItem(listOf(first, second) + additional)
 
-/** Native SQL `ROLLUP`, whose items are grouped from left to right and finally as a grand total. */
+/** Native SQL `ROLLUP`, whose items are grouped from left to right and finally as a grand total.
+ *
+ * @property items ordered grouping items.
+ */
 class Rollup internal constructor(val items: List<GroupingItem>) : GroupByElement {
     init {
         require(items.isNotEmpty()) { "ROLLUP requires at least one grouping item; use grandTotal() for ()" }
@@ -30,7 +36,10 @@ class Rollup internal constructor(val items: List<GroupingItem>) : GroupByElemen
 /** Creates a native SQL `ROLLUP` grouping element. */
 fun rollup(first: GroupingItem, vararg additional: GroupingItem): Rollup = Rollup(listOf(first) + additional)
 
-/** Native SQL `CUBE`, which creates every subset of its grouping items. */
+/** Native SQL `CUBE`, which creates every subset of its grouping items.
+ *
+ * @property items grouping items used to produce the cube.
+ */
 class Cube internal constructor(val items: List<GroupingItem>) : GroupByElement {
     init {
         require(items.isNotEmpty()) { "CUBE requires at least one grouping item" }
@@ -40,7 +49,10 @@ class Cube internal constructor(val items: List<GroupingItem>) : GroupByElement 
 /** Creates a native SQL `CUBE` grouping element. */
 fun cube(first: GroupingItem, vararg additional: GroupingItem): Cube = Cube(listOf(first) + additional)
 
-/** One explicit grouping set. An empty list is the SQL grand-total grouping set `()`. */
+/** One explicit grouping set. An empty list is the SQL grand-total grouping set `()`.
+ *
+ * @property items grouping items in this set.
+ */
 class GroupingSet internal constructor(val items: List<GroupingItem>)
 
 /** Creates one explicit grouping set, including the empty set when called without arguments. */
@@ -49,7 +61,10 @@ fun groupingSet(vararg items: GroupingItem): GroupingSet = GroupingSet(items.toL
 /** Creates the explicit SQL grand-total grouping set `()`. */
 fun grandTotal(): GroupingSet = GroupingSet(emptyList())
 
-/** Native SQL `GROUPING SETS`, retaining its declared order and duplicate sets. */
+/** Native SQL `GROUPING SETS`, retaining its declared order and duplicate sets.
+ *
+ * @property sets ordered grouping sets.
+ */
 class GroupingSets internal constructor(val sets: List<GroupingSet>) : GroupByElement {
     init {
         require(sets.isNotEmpty()) { "GROUPING SETS requires at least one grouping set" }
@@ -60,12 +75,24 @@ class GroupingSets internal constructor(val sets: List<GroupingSet>) : GroupByEl
 fun groupingSets(first: GroupingSet, vararg additional: GroupingSet): GroupingSets =
     GroupingSets(listOf(first) + additional)
 
-/** Dialect-level grouping capabilities are intentionally independent so unsupported forms are never emulated. */
+/** Dialect-level grouping capabilities are intentionally independent so unsupported forms are never emulated.
+ *
+ * @property unsupportedCapability capability identifier used when the dialect rejects a form.
+ */
 enum class SqlGroupingCapability(val unsupportedCapability: String) {
+    /** Native `ROLLUP`. */
     Rollup("grouping-rollup"),
+
+    /** Native `CUBE`. */
     Cube("grouping-cube"),
+
+    /** Native `GROUPING SETS`. */
     GroupingSets("grouping-sets"),
+
+    /** Native `GROUPING` function. */
     GroupingFunction("grouping-function"),
+
+    /** Parenthesized composite grouping unit. */
     Composite("grouping-composite"),
 }
 

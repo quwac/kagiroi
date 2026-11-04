@@ -16,7 +16,11 @@ import dev.quwac.kagiroi.schema.WritableColumn
  */
 sealed interface InsertConflictBehavior
 
-/** PostgreSQL/SQLite-style behavior with an optional arbiter target and one conflict action. */
+/** PostgreSQL/SQLite-style behavior with an optional arbiter target and one conflict action.
+ *
+ * @property target optional unique-index or constraint target.
+ * @property action action applied when the target conflicts.
+ */
 class TargetedInsertConflictBehavior internal constructor(
     val target: InsertConflictTarget?,
     val action: TargetedInsertConflictAction,
@@ -25,31 +29,53 @@ class TargetedInsertConflictBehavior internal constructor(
 /** Native REPLACE statement semantics. */
 data object ReplaceInsertBehavior : InsertConflictBehavior
 
-/** Ordered SQLite conflict clauses. A target-less clause may only appear last. */
+/** Ordered SQLite conflict clauses. A target-less clause may only appear last.
+ *
+ * @property clauses conflict clauses in execution order.
+ */
 class MultipleTargetedInsertConflictBehavior internal constructor(val clauses: List<TargetedInsertConflictBehavior>) :
     InsertConflictBehavior
 
-/** MySQL/MariaDB behavior for any primary-key or unique-key duplicate. */
+/** MySQL/MariaDB behavior for any primary-key or unique-key duplicate.
+ *
+ * @property update assignments and predicate applied to a duplicate row.
+ */
 class DuplicateKeyUpdateBehavior internal constructor(val update: InsertConflictUpdate) : InsertConflictBehavior
 
 /** A PostgreSQL/SQLite conflict arbiter target. */
 sealed interface InsertConflictTarget {
-    /** Native unique-index inference using one or more writable columns. */
+    /** Native unique-index inference using one or more writable columns.
+     *
+     * @property columns writable columns used to infer the unique index.
+     * @property predicate optional partial-index predicate.
+     */
     class Columns internal constructor(val columns: List<WritableColumn<*>>, val predicate: SqlPredicate?) :
         InsertConflictTarget
 
-    /** PostgreSQL's named unique or exclusion constraint syntax. */
+    /** PostgreSQL's named unique or exclusion constraint syntax.
+     *
+     * @property name constraint name.
+     */
     class Constraint internal constructor(val name: String) : InsertConflictTarget
 }
 
 /** One PostgreSQL/SQLite action selected for a targeted conflict. */
 sealed interface TargetedInsertConflictAction {
+    /** Ignores a row that conflicts with the selected target. */
     data object DoNothing : TargetedInsertConflictAction
 
+    /** Applies typed assignments to a row that conflicts with the selected target.
+     *
+     * @property update assignments and optional update predicate.
+     */
     class DoUpdate internal constructor(val update: InsertConflictUpdate) : TargetedInsertConflictAction
 }
 
-/** Typed assignments and the optional update predicate of a conflict-update action. */
+/** Typed assignments and the optional update predicate of a conflict-update action.
+ *
+ * @property assignments target-column assignments.
+ * @property predicate optional predicate that limits which conflicts are updated.
+ */
 class InsertConflictUpdate internal constructor(val assignments: List<WriteAssignment>, val predicate: SqlPredicate?)
 
 /**
@@ -57,6 +83,8 @@ class InsertConflictUpdate internal constructor(val assignments: List<WriteAssig
  *
  * Its constructor is intentionally internal: only the scoped dialect conflict-update builders
  * can create it. It keeps the original column's logical type, nullability, and storage mapping.
+ *
+ * @property column source column from the proposed inserted row.
  */
 class ProposedInsertColumn<T> internal constructor(val column: Column<T>) : SqlExpression<T> {
     override val referencedColumns: List<Column<*>> get() = listOf(column)
@@ -113,8 +141,10 @@ internal class InsertConflictUpdateBuilder(private val table: Table) {
 
 /** Scoped update receiver for dialects whose proposed row is named `excluded`. */
 class ExcludedConflictUpdateBuilder internal constructor(private val delegate: InsertConflictUpdateBuilder) {
+    /** Assigns [value] to [column]. */
     fun <T> set(column: WritableColumn<T>, value: T) = delegate.set(column, value)
 
+    /** Assigns [expression] to [column]. */
     fun <T> set(column: WritableColumn<T>, expression: SqlExpression<T>) = delegate.set(column, expression)
 
     /** References this INSERT's proposed row using the dialect's `excluded` semantics. */
@@ -126,15 +156,20 @@ class ExcludedConflictUpdateBuilder internal constructor(private val delegate: I
 
 /** Scoped update receiver for dialects whose proposed row is named `inserted`. */
 class InsertedConflictUpdateBuilder internal constructor(private val delegate: InsertConflictUpdateBuilder) {
+    /** Assigns [value] to [column]. */
     fun <T> set(column: WritableColumn<T>, value: T) = delegate.set(column, value)
 
+    /** Assigns [expression] to [column]. */
     fun <T> set(column: WritableColumn<T>, expression: SqlExpression<T>) = delegate.set(column, expression)
 
     /** References this INSERT's proposed row using the dialect's `inserted` semantics. */
     fun <T> inserted(column: Column<T>): SqlExpression<T> = delegate.proposed(column)
 }
 
-/** Scoped action receiver for PostgreSQL/SQLite-style conflict syntax. */
+/** Scoped action receiver for PostgreSQL/SQLite-style conflict syntax.
+ *
+ * @property target optional conflict arbiter target.
+ */
 class TargetedInsertConflictBuilder internal constructor(
     private val table: Table,
     private val target: InsertConflictTarget?,
@@ -142,11 +177,13 @@ class TargetedInsertConflictBuilder internal constructor(
 ) {
     private var action: TargetedInsertConflictAction? = null
 
+    /** Selects `DO NOTHING` for this conflict clause. */
     fun doNothing() {
         require(action == null) { "Conflict action is already selected" }
         action = TargetedInsertConflictAction.DoNothing
     }
 
+    /** Selects `DO UPDATE` and collects typed update assignments. */
     fun doUpdate(block: ExcludedConflictUpdateBuilder.() -> Unit) {
         require(action == null) { "Conflict action is already selected" }
         require(!updateRequiresTarget || target != null) { "DO UPDATE requires a conflict target" }

@@ -169,6 +169,7 @@ class InMemorySqliteDatabase private constructor(
         }
     }
 
+    /** Provides the dispose result. */
     suspend fun dispose() = close()
 
     @Suppress("TooGenericExceptionCaught") // A rollback failure is deliberately retained on the original failure.
@@ -307,7 +308,9 @@ class InMemorySqliteDatabase private constructor(
         }
     }
 
+    /** Represents companion. */
     companion object {
+        /** Provides the in memory result. */
         suspend fun inMemory(configure: InMemorySqliteDatabaseConfiguration.() -> Unit = {}): InMemorySqliteDatabase {
             val configuration = InMemorySqliteDatabaseConfiguration().apply(configure)
             val codecs = SqlTypeCodecRegistry(configuration.typeCodecs())
@@ -339,9 +342,11 @@ private class ActiveInMemorySqliteTransactions(private val databases: List<InMem
 
 private fun SqliteEngineException.vendorCode(): String? = resultCode?.toString()
 
+/** Represents in memory sqlite database configuration. */
 class InMemorySqliteDatabaseConfiguration internal constructor() {
     private val extensions = mutableListOf<SqliteExtension>()
 
+    /** Provides the install result. */
     fun install(extension: SqliteExtension) {
         extensions += extension
     }

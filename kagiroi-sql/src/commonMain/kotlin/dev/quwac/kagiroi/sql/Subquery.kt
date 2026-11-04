@@ -35,7 +35,12 @@ class ScalarSubquery<T> internal constructor(
 /** Returns a scalar expression only when this query has exactly one projection. */
 fun <T> QueryExpression<T, SingleProjection>.scalar(): ScalarSubquery<T?> = ScalarSubquery(this, columns.single())
 
-/** A typed SQL predicate whose left expression is tested against one subquery projection. */
+/** A typed SQL predicate whose left expression is tested against one subquery projection.
+ *
+ * @property expression left expression compared with the subquery result.
+ * @property query one-column subquery used for comparison.
+ * @property negated whether to render `NOT IN` instead of `IN`.
+ */
 class InSubqueryPredicate internal constructor(
     val expression: SqlExpression<*>,
     internal val query: QueryExpression<*, SingleProjection>,
@@ -44,7 +49,11 @@ class InSubqueryPredicate internal constructor(
     override val referencedColumns: List<Column<*>> get() = expression.referencedColumns + query.referencedColumns()
 }
 
-/** A typed SQL EXISTS or NOT EXISTS predicate. */
+/** A typed SQL `EXISTS` or `NOT EXISTS` predicate.
+ *
+ * @property query subquery whose row existence is tested.
+ * @property negated whether to render `NOT EXISTS` instead of `EXISTS`.
+ */
 class ExistsPredicate internal constructor(internal val query: QueryExpression<*, *>, val negated: Boolean) :
     BooleanExpression {
     override val referencedColumns: List<Column<*>> get() = query.referencedColumns()
@@ -183,6 +192,8 @@ fun lateral(alias: String, body: LateralScope.() -> QueryExpression<*, *>): Late
  *
  * The historical name remains because the same projection handle is used by both derived tables
  * and CTEs; no CTE-specific column representation is introduced.
+ * @property name Value associated with name.
+ * @property source Value associated with source.
  */
 class DerivedColumn<T> internal constructor(
     val source: QueryResultRelation,
@@ -202,9 +213,15 @@ class DerivedColumn<T> internal constructor(
     override fun toString(): String = "$source.$name"
 }
 
-/** A derived-table projection made nullable by an outer join. */
+/** A derived-table projection made nullable by an outer join.
+ *
+ * @property column original non-nullable derived-table projection.
+ */
 class NullableDerivedColumn<T> internal constructor(val column: DerivedColumn<T>) : SqlExpression<T?> {
+    /** Value associated with source. */
     val source: QueryResultRelation get() = column.source
+
+    /** Value associated with name. */
     val name: String get() = column.name
 
     override val referencedColumns: List<Column<*>> get() = column.referencedColumns

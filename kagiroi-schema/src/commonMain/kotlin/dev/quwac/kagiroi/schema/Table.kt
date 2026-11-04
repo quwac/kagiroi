@@ -4,7 +4,12 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** A relational table definition made from explicitly named, typed columns. */
+/** A relational table definition made from explicitly named, typed columns.
+ *
+ * @property tableName physical table name.
+ * @property schemaName optional containing schema name.
+ * @property comment optional logical schema metadata.
+ */
 @Suppress("TooManyFunctions") // Mirrors the explicit scalar types available at the HTTP input boundary.
 abstract class Table(
     val tableName: String,
@@ -25,6 +30,7 @@ abstract class Table(
     private val declaredIndexes = mutableListOf<SchemaIndex>()
     private var isSchemaSealed = false
 
+    /** Columns declared by this table, in declaration order. */
     val columns: List<Column<*>> get() = registeredColumns.toList()
 
     /** Optional table-level primary key. Column-level primary keys remain column metadata. */

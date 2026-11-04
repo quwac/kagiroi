@@ -14,6 +14,14 @@ naming:
   MatchingDeclarationName:
     active: false
 
+comments:
+  UndocumentedPublicClass:
+    active: true
+  UndocumentedPublicFunction:
+    active: true
+  UndocumentedPublicProperty:
+    active: true
+
 style:
   MaxLineLength:
     active: false

@@ -19,34 +19,44 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.UtcOffset
 import kotlin.js.JsName
 
+/** Represents kotlinx local date column type. */
 object KotlinxLocalDateColumnType : ColumnType<LocalDate>("LocalDate"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.kotlinx.localDate")
 }
 
+/** Represents kotlinx local time column type. */
 object KotlinxLocalTimeColumnType : ColumnType<LocalTime>("LocalTime"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.kotlinx.localTime")
 }
 
+/** Represents kotlinx local date time column type. */
 object KotlinxLocalDateTimeColumnType : ColumnType<LocalDateTime>("LocalDateTime"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.kotlinx.localDateTime")
 }
 
+/** Represents kotlinx utc offset column type. */
 object KotlinxUtcOffsetColumnType : ColumnType<UtcOffset>("UtcOffset"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.kotlinx.utcOffset")
 }
 
+/** Represents kotlinx time zone column type. */
 object KotlinxTimeZoneColumnType : ColumnType<TimeZone>("TimeZone"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.kotlinx.timeZone")
 }
 
+/** Provides the local date result. */
 fun Table.localDate(name: String): WritableColumn<LocalDate> = column(name, KotlinxLocalDateColumnType)
 
+/** Provides the local time result. */
 fun Table.localTime(name: String): WritableColumn<LocalTime> = column(name, KotlinxLocalTimeColumnType)
 
+/** Provides the local date time result. */
 fun Table.localDateTime(name: String): WritableColumn<LocalDateTime> = column(name, KotlinxLocalDateTimeColumnType)
 
+/** Provides the utc offset result. */
 fun Table.utcOffset(name: String): WritableColumn<UtcOffset> = column(name, KotlinxUtcOffsetColumnType)
 
+/** Provides the time zone result. */
 fun Table.timeZone(name: String): WritableColumn<TimeZone> = column(name, KotlinxTimeZoneColumnType)
 
 /**

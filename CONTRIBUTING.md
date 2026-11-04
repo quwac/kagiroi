@@ -1,6 +1,6 @@
 # Contributing to Kagiroi
 
-Kagiroi is a Kotlin Multiplatform database toolkit for Kotlin/JS and Kotlin/Wasm.
+Kagiroi is a database toolkit for Kotlin/JS and Kotlin/Wasm.
 
 ## Setup
 

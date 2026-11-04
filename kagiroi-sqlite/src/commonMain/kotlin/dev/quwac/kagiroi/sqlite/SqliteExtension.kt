@@ -9,6 +9,7 @@ import kotlin.time.Instant
 
 /** An explicit set of SQLite-specific value mappings installed into a SQLite database. */
 interface SqliteExtension {
+    /** Value associated with type codecs. */
     val typeCodecs: List<SqlTypeCodec<*, *>>
 }
 

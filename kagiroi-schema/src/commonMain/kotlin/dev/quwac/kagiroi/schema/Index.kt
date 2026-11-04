@@ -4,16 +4,24 @@ package dev.quwac.kagiroi.schema
 
 import kotlin.uuid.Uuid
 
-/** Explicit ordering for one index key. A missing direction retains the database default. */
+/** Explicit ordering for one index key. A missing direction retains the database default.
+ *
+ * @property sql SQL ordering token.
+ */
 enum class IndexDirection(val sql: String) {
+    /** Sort index entries in ascending order. */
     Ascending("ASC"),
+
+    /** Sort index entries in descending order. */
     Descending("DESC"),
 }
 
 /** One immutable key in a schema index. Query [Order] values are converted to this model on input. */
 sealed interface IndexKey {
+    /** Requested ordering, or `null` to use the database default. */
     val direction: IndexDirection?
 
+    /** Columns referenced by this key expression. */
     val referencedColumns: List<Column<*>>
 }
 
@@ -24,20 +32,31 @@ sealed interface IndexKey {
  * does not depend on query-statement types.
  */
 interface IndexOrderedExpression {
+    /** Typed expression indexed by this ordering. */
     val indexExpression: SqlExpression<*>
 
+    /** Requested index ordering. */
     val indexDirection: IndexDirection
 
+    /** Whether this ordering requests `NULLS FIRST` or `NULLS LAST`. */
     val indexHasNullOrdering: Boolean
 }
 
-/** A direct physical column key. */
+/** A direct physical column key.
+ *
+ * @property column indexed table column.
+ * @property direction requested ordering, or `null` for the database default.
+ */
 class ColumnIndexKey internal constructor(val column: Column<*>, override val direction: IndexDirection? = null) :
     IndexKey {
     override val referencedColumns: List<Column<*>> = listOf(column)
 }
 
-/** A typed expression key. It is rendered only by dialects that support native expression indexes. */
+/** A typed expression key. It is rendered only by dialects that support native expression indexes.
+ *
+ * @property expression expression used as the index key.
+ * @property direction requested ordering, or `null` for the database default.
+ */
 class ExpressionIndexKey internal constructor(
     val expression: SqlExpression<*>,
     override val direction: IndexDirection? = null,
@@ -50,6 +69,14 @@ class ExpressionIndexKey internal constructor(
  *
  * Indexes remain independent DDL operations: declaring this value never changes [createTable]
  * behavior. [CreateIndex] and [createIndexes] snapshot this metadata when they are built.
+ *
+ * @property name physical index name.
+ * @property table table that owns the index.
+ * @property unique whether the index enforces uniqueness.
+ * @property predicate optional partial-index predicate.
+ * @property comment optional logical metadata comment.
+ * @property keys ordered index keys.
+ * @property includedColumns columns stored in the index without participating in its key.
  */
 class SchemaIndex internal constructor(
     val name: String,

@@ -297,6 +297,7 @@ class HyperdriveMySqlDatabaseConfiguration internal constructor() {
     private val extensions = mutableListOf<MySqlExtension>()
     private var configuredDialect: SqlDialect? = null
 
+    /** Provides the install result. */
     fun install(extension: MySqlExtension) {
         extensions += extension
     }

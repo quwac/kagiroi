@@ -28,6 +28,17 @@ import dev.quwac.kagiroi.schema.uniqueConstraint
 /** An explicit schema operation. This model does not inspect or diff an existing database schema. */
 sealed interface DdlStatement
 
+/** Immutable snapshot of the table's physical columns and declared constraints for CREATE TABLE.
+ *
+ * @property table table represented by the statement.
+ * @property columns physical columns emitted by the statement.
+ * @property ifNotExists whether to add `IF NOT EXISTS` when supported.
+ * @property tableComment table comment captured when the statement was built.
+ * @property primaryKey table-level primary key captured when the statement was built.
+ * @property uniqueConstraints table-level UNIQUE constraints captured when built.
+ * @property foreignKeys foreign keys captured when the statement was built.
+ * @property checks CHECK constraints captured when the statement was built.
+ */
 class CreateTable internal constructor(
     val table: Table,
     val columns: NonEmptyList<Column<*>>,
@@ -44,39 +55,108 @@ class CreateTable internal constructor(
     val checks: List<CheckConstraint>,
 ) : DdlStatement
 
+/** Drops [table], optionally leaving it in place when it does not exist.
+ *
+ * @property table table to drop.
+ * @property ifExists whether to add `IF EXISTS` when supported.
+ */
 class DropTable internal constructor(val table: Table, val ifExists: Boolean) : DdlStatement
 
-/** Creates an independent sequence object. */
+/** Creates an independent sequence object.
+ *
+ * @property sequence sequence to create.
+ * @property ifNotExists whether to add `IF NOT EXISTS` when supported.
+ */
 class CreateSequence internal constructor(val sequence: Sequence, val ifNotExists: Boolean) : DdlStatement
 
-/** Drops an independent sequence object. */
+/** Drops an independent sequence object.
+ *
+ * @property sequence sequence to drop.
+ * @property ifExists whether to add `IF EXISTS` when supported.
+ */
 class DropSequence internal constructor(val sequence: Sequence, val ifExists: Boolean) : DdlStatement
 
+/** One typed operation in an [AlterTable] statement. */
 sealed interface AlterTableOperation {
+    /** Adds [column] to the table.
+     *
+     * @property column column definition to add.
+     */
     class AddColumn internal constructor(val column: Column<*>) : AlterTableOperation
 
+    /** Drops a column from the table.
+     *
+     * @property column column to drop.
+     */
     class DropColumn internal constructor(val column: Column<*>) : AlterTableOperation
 
+    /** Renames an existing column.
+     *
+     * @property column column to rename.
+     * @property newName new physical column name.
+     */
     class RenameColumn internal constructor(val column: Column<*>, val newName: String) : AlterTableOperation
 
+    /** Renames the table.
+     *
+     * @property newName new physical table name.
+     */
     class RenameTable internal constructor(val newName: String) : AlterTableOperation
 
+    /** Adds a table-level primary-key constraint.
+     *
+     * @property constraint primary-key definition to add.
+     */
     class AddPrimaryKey internal constructor(val constraint: PrimaryKeyConstraint) : AlterTableOperation
 
+    /** Drops a table-level primary-key constraint.
+     *
+     * @property name constraint name, or `null` when the database identifies it implicitly.
+     */
     class DropPrimaryKey internal constructor(val name: String?) : AlterTableOperation
 
+    /** Adds a table-level UNIQUE constraint.
+     *
+     * @property constraint constraint definition to add.
+     */
     class AddUnique internal constructor(val constraint: UniqueConstraint) : AlterTableOperation
 
+    /** Drops a named UNIQUE constraint.
+     *
+     * @property name constraint name.
+     */
     class DropUnique internal constructor(val name: String) : AlterTableOperation
 
+    /** Adds a foreign-key constraint.
+     *
+     * @property constraint constraint definition to add.
+     */
     class AddForeignKey internal constructor(val constraint: ForeignKeyConstraint) : AlterTableOperation
 
+    /** Drops a named foreign-key constraint.
+     *
+     * @property name constraint name.
+     */
     class DropForeignKey internal constructor(val name: String) : AlterTableOperation
 
+    /** Adds a CHECK constraint.
+     *
+     * @property constraint constraint definition to add.
+     */
     class AddCheck internal constructor(val constraint: CheckConstraint) : AlterTableOperation
 
+    /** Drops a named CHECK constraint.
+     *
+     * @property name constraint name.
+     */
     class DropCheck internal constructor(val name: String) : AlterTableOperation
 
+    /** Changes the logical and physical column type.
+     *
+     * @property column column whose type is changed.
+     * @property type Kotlin mapping for the new value.
+     * @property storageType database storage type rendered by the selected dialect.
+     */
     class AlterColumnType internal constructor(
         val column: Column<*>,
         /** Kotlin mapping for the new value. The existing Column object is never changed. */
@@ -85,16 +165,37 @@ sealed interface AlterTableOperation {
         val storageType: ColumnType<*>,
     ) : AlterTableOperation
 
+    /** Sets a column's DEFAULT expression.
+     *
+     * @property column column whose default is changed.
+     * @property default typed default expression to apply.
+     */
     class SetDefault internal constructor(val column: Column<*>, val default: ColumnDefault<*>) : AlterTableOperation
 
+    /** Removes a column's DEFAULT expression.
+     *
+     * @property column column whose default is removed.
+     */
     class DropDefault internal constructor(val column: Column<*>) : AlterTableOperation
 
+    /** Adds a NOT NULL constraint to a column.
+     *
+     * @property column column to require as non-null.
+     */
     class SetNotNull internal constructor(val column: Column<*>) : AlterTableOperation
 
+    /** Removes a NOT NULL constraint from a column.
+     *
+     * @property column column to make nullable.
+     */
     class DropNotNull internal constructor(val column: Column<*>) : AlterTableOperation
 }
 
-/** Ordered, immutable changes to one table.  One operation may render to one or more SQL statements. */
+/** Ordered, immutable changes to one table. One operation may render to one or more SQL statements.
+ *
+ * @property table table whose schema is changed.
+ * @property operations ordered operations to apply.
+ */
 class AlterTable internal constructor(val table: Table, val operations: NonEmptyList<AlterTableOperation>) :
     DdlStatement {
     /** Compatibility view for code that renders a single-operation ALTER TABLE. */
@@ -104,15 +205,33 @@ class AlterTable internal constructor(val table: Table, val operations: NonEmpty
     fun singleOperation(operation: AlterTableOperation): AlterTable = AlterTable(table, nonEmptyListOf(operation))
 }
 
+/** Immutable CREATE INDEX operation based on the index metadata captured at construction.
+ *
+ * @property index immutable index schema metadata.
+ * @property name SQL index name.
+ * @property table table that owns the index.
+ * @property keys indexed columns and sort directions.
+ * @property unique whether the index enforces uniqueness.
+ * @property predicate optional partial-index predicate.
+ * @property includedColumns columns stored in the index without participating in its key.
+ */
 class CreateIndex internal constructor(
     /** Immutable index schema metadata snapshotted when this DDL statement is built. */
     val index: SchemaIndex,
 ) : DdlStatement {
     val name: String get() = index.name
     val table: Table get() = index.table
+
+    /** Value associated with keys. */
     val keys: List<IndexKey> get() = index.keys
+
+    /** Value associated with unique. */
     val unique: Boolean get() = index.unique
+
+    /** Value associated with predicate. */
     val predicate get() = index.predicate
+
+    /** Value associated with included columns. */
     val includedColumns: List<Column<*>> get() = index.includedColumns
 
     /** Optional logical schema metadata for this named index. */
@@ -127,6 +246,11 @@ class CreateIndex internal constructor(
     val columns: List<Column<*>> get() = keys.mapNotNull { (it as? ColumnIndexKey)?.column }
 }
 
+/** Drops a named index from a table.
+ *
+ * @property name physical index name.
+ * @property table table that owns the index.
+ */
 class DropIndex internal constructor(val name: String, val table: Table) : DdlStatement
 
 /** Builds a CREATE TABLE statement from current physical columns of [table]. */
@@ -147,13 +271,17 @@ fun createTable(table: Table, ifNotExists: Boolean = false): CreateTable {
     )
 }
 
+/** Builds a statement to drop [table]. */
 fun dropTable(table: Table, ifExists: Boolean = false): DropTable = DropTable(table, ifExists)
 
+/** Builds a statement to create [sequence]. */
 fun createSequence(sequence: Sequence, ifNotExists: Boolean = false): CreateSequence =
     CreateSequence(sequence, ifNotExists)
 
+/** Builds a statement to drop [sequence]. */
 fun dropSequence(sequence: Sequence, ifExists: Boolean = false): DropSequence = DropSequence(sequence, ifExists)
 
+/** Collects ordered, typed ALTER TABLE operations for [table]. */
 @DdlDsl
 @Suppress("TooManyFunctions") // The ALTER DSL deliberately exposes each typed operation directly.
 class AlterTableBuilder internal constructor(private val table: Table) {
@@ -162,6 +290,7 @@ class AlterTableBuilder internal constructor(private val table: Table) {
     private val foreignKeys = mutableListOf<() -> Boolean>()
     private var endsWithRename = false
 
+    /** Adds a physical column to [table]. */
     fun addColumn(column: Column<*>) {
         requireCurrentColumn(column)
         require(!column.isComputed) {
@@ -170,12 +299,14 @@ class AlterTableBuilder internal constructor(private val table: Table) {
         addOperation(AlterTableOperation.AddColumn(column))
     }
 
+    /** Drops [column] from [table]. */
     fun dropColumn(column: Column<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.DropColumn(column))
         droppedColumns += column
     }
 
+    /** Renames [column] to [newName]. */
     fun renameColumn(column: Column<*>, newName: String) {
         requireCurrentColumn(column)
         require(newName.isNotBlank()) { "New column name must not be blank" }
@@ -187,6 +318,7 @@ class AlterTableBuilder internal constructor(private val table: Table) {
         endsWithRename = true
     }
 
+    /** Renames [table] to [newName]. */
     fun renameTable(newName: String) {
         require(newName.isNotBlank()) { "New table name must not be blank" }
         require(newName != table.tableName) { "New table name must differ from the current name: $table" }
@@ -194,23 +326,28 @@ class AlterTableBuilder internal constructor(private val table: Table) {
         endsWithRename = true
     }
 
+    /** Adds a table-level primary key over the ordered columns. */
     fun addPrimaryKey(first: Column<*>, vararg remaining: Column<*>, name: String? = null) {
         addOperation(AlterTableOperation.AddPrimaryKey(primaryKeyConstraint(table, first, *remaining, name = name)))
     }
 
+    /** Drops the table-level primary key, using [name] when the dialect requires a name. */
     fun dropPrimaryKey(name: String? = null) {
         require(name == null || name.isNotBlank()) { "Primary key constraint name must not be blank" }
         addOperation(AlterTableOperation.DropPrimaryKey(name))
     }
 
+    /** Adds a table-level UNIQUE constraint over the ordered columns. */
     fun addUnique(first: Column<*>, vararg remaining: Column<*>, name: String? = null, comment: String? = null) {
         addOperation(
             AlterTableOperation.AddUnique(uniqueConstraint(table, first, *remaining, name = name, comment = comment)),
         )
     }
 
+    /** Drops the named UNIQUE constraint. */
     fun dropUnique(name: String) = dropNamedConstraint(name, "UNIQUE") { AlterTableOperation.DropUnique(it) }
 
+    /** Begins a one-column foreign-key declaration. */
     fun <T : Any> addForeignKey(source: Column<out T?>, name: String? = null): AlterForeignKeyBuilder<T> {
         requireCurrentColumn(source)
         var index: Int? = null
@@ -227,6 +364,7 @@ class AlterTableBuilder internal constructor(private val table: Table) {
             .also { foreignKeys += { it.isComplete } }
     }
 
+    /** Begins a type-checked two-column foreign-key declaration. */
     fun <A : Any, B : Any> addForeignKey(
         firstSource: Column<out A?>,
         secondSource: Column<out B?>,
@@ -248,6 +386,7 @@ class AlterTableBuilder internal constructor(private val table: Table) {
             .also { foreignKeys += { it.isComplete } }
     }
 
+    /** Begins a type-checked three-column foreign-key declaration. */
     fun <A : Any, B : Any, C : Any> addForeignKey(
         firstSource: Column<out A?>,
         secondSource: Column<out B?>,
@@ -271,11 +410,13 @@ class AlterTableBuilder internal constructor(private val table: Table) {
             .also { foreignKeys += { it.isComplete } }
     }
 
+    /** Drops the named foreign-key constraint. */
     fun dropForeignKey(name: String) = dropNamedConstraint(
         name,
         "foreign key",
     ) { AlterTableOperation.DropForeignKey(it) }
 
+    /** Adds a typed CHECK constraint. */
     fun addCheck(
         name: String? = null,
         expression: dev.quwac.kagiroi.schema.CheckConstraintScope.() -> dev.quwac.kagiroi.schema.BooleanExpression,
@@ -283,38 +424,46 @@ class AlterTableBuilder internal constructor(private val table: Table) {
         addOperation(AlterTableOperation.AddCheck(checkConstraint(table, name, expression)))
     }
 
+    /** Drops the named CHECK constraint. */
     fun dropCheck(name: String) = dropNamedConstraint(name, "CHECK") { AlterTableOperation.DropCheck(it) }
 
+    /** Changes [column] to the logical and storage mapping of [type]. */
     fun alterColumnType(column: Column<*>, type: ColumnType<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.AlterColumnType(column, type, type))
     }
 
+    /** Changes [column] to the mapping selected by [target]. */
     fun alterColumnType(column: Column<*>, target: SqlCastTarget<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.AlterColumnType(column, target.type, target.storageType))
     }
 
+    /** Sets [column]'s default to the typed literal [value]. */
     fun <T> setDefault(column: Column<T>, value: T) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.SetDefault(column, columnDefault(column, value)))
     }
 
+    /** Sets [column]'s default to a typed SQL [expression]. */
     fun <T> setDefault(column: Column<T>, expression: SqlExpression<T>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.SetDefault(column, columnDefault(column, expression)))
     }
 
+    /** Removes the default expression from [column]. */
     fun dropDefault(column: Column<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.DropDefault(column))
     }
 
+    /** Requires [column] to contain a non-null value. */
     fun setNotNull(column: Column<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.SetNotNull(column))
     }
 
+    /** Allows [column] to contain SQL `NULL`. */
     fun dropNotNull(column: Column<*>) {
         requireCurrentColumn(column)
         addOperation(AlterTableOperation.DropNotNull(column))
@@ -365,18 +514,21 @@ class AlterForeignKeyBuilder<T : Any> internal constructor(
 
     internal val isComplete: Boolean get() = target != null
 
+    /** Selects the target column for this foreign key. */
     fun references(target: Column<out T?>): AlterForeignKeyBuilder<T> = apply {
         require(this.target == null) { "ALTER TABLE foreign key already has references(...)" }
         this.target = target
         publish()
     }
 
+    /** Sets the action applied when the target row is deleted. */
     fun onDelete(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder<T> = apply {
         require(onDelete == null) { "ALTER TABLE foreign key already has ON DELETE" }
         onDelete = action
         if (target != null) publish()
     }
 
+    /** Sets the action applied when the target key is updated. */
     fun onUpdate(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder<T> = apply {
         require(onUpdate == null) { "ALTER TABLE foreign key already has ON UPDATE" }
         onUpdate = action
@@ -403,6 +555,7 @@ class AlterForeignKeyBuilder2<A : Any, B : Any> internal constructor(
 
     internal val isComplete: Boolean get() = firstTarget != null && secondTarget != null
 
+    /** Selects the two target columns in source-column order. */
     fun references(firstTarget: Column<out A?>, secondTarget: Column<out B?>): AlterForeignKeyBuilder2<A, B> = apply {
         require(!isComplete) { "ALTER TABLE foreign key already has references(...)" }
         this.firstTarget = firstTarget
@@ -410,12 +563,14 @@ class AlterForeignKeyBuilder2<A : Any, B : Any> internal constructor(
         publish()
     }
 
+    /** Sets the action applied when a target row is deleted. */
     fun onDelete(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder2<A, B> = apply {
         require(onDelete == null) { "ALTER TABLE foreign key already has ON DELETE" }
         onDelete = action
         if (isComplete) publish()
     }
 
+    /** Sets the action applied when target keys are updated. */
     fun onUpdate(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder2<A, B> = apply {
         require(onUpdate == null) { "ALTER TABLE foreign key already has ON UPDATE" }
         onUpdate = action
@@ -453,6 +608,7 @@ class AlterForeignKeyBuilder3<A : Any, B : Any, C : Any> internal constructor(
 
     internal val isComplete: Boolean get() = firstTarget != null && secondTarget != null && thirdTarget != null
 
+    /** Selects the three target columns in source-column order. */
     fun references(
         firstTarget: Column<out A?>,
         secondTarget: Column<out B?>,
@@ -465,12 +621,14 @@ class AlterForeignKeyBuilder3<A : Any, B : Any, C : Any> internal constructor(
         publish()
     }
 
+    /** Sets the action applied when a target row is deleted. */
     fun onDelete(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder3<A, B, C> = apply {
         require(onDelete == null) { "ALTER TABLE foreign key already has ON DELETE" }
         onDelete = action
         if (isComplete) publish()
     }
 
+    /** Sets the action applied when target keys are updated. */
     fun onUpdate(action: dev.quwac.kagiroi.schema.ForeignKeyAction): AlterForeignKeyBuilder3<A, B, C> = apply {
         require(onUpdate == null) { "ALTER TABLE foreign key already has ON UPDATE" }
         onUpdate = action
@@ -491,35 +649,42 @@ class AlterForeignKeyBuilder3<A : Any, B : Any, C : Any> internal constructor(
     }
 }
 
+/** Builds an ordered ALTER TABLE operation list for [table]. */
 fun alterTable(table: Table, configure: AlterTableBuilder.() -> Unit): AlterTable =
     AlterTableBuilder(table).apply(configure).build()
 
-/** Executes explicit DDL statements and sequence reads through [SqlExecution.execute]. */
+/** Builds and executes DDL operations within a [SqlExecution] scope. */
 @DdlDsl
 @Suppress("TooManyFunctions") // Keeps the complete typed DDL surface on the execution receiver.
 class DdlExecutionScope internal constructor(private val execution: SqlExecution) {
     private var executedOperation = false
 
+    /** Creates [table] with its declared physical columns and constraints. */
     suspend fun createTable(table: Table, ifNotExists: Boolean = false) {
         executeDdl(dev.quwac.kagiroi.sql.createTable(table, ifNotExists))
     }
 
+    /** Drops [table]. */
     suspend fun dropTable(table: Table, ifExists: Boolean = false) {
         executeDdl(dev.quwac.kagiroi.sql.dropTable(table, ifExists))
     }
 
+    /** Creates an independent [sequence]. */
     suspend fun createSequence(sequence: Sequence, ifNotExists: Boolean = false) {
         executeDdl(dev.quwac.kagiroi.sql.createSequence(sequence, ifNotExists))
     }
 
+    /** Drops an independent [sequence]. */
     suspend fun dropSequence(sequence: Sequence, ifExists: Boolean = false) {
         executeDdl(dev.quwac.kagiroi.sql.dropSequence(sequence, ifExists))
     }
 
+    /** Applies the configured ordered changes to [table]. */
     suspend fun alterTable(table: Table, configure: AlterTableBuilder.() -> Unit) {
         executeDdl(dev.quwac.kagiroi.sql.alterTable(table, configure))
     }
 
+    /** Creates an index from an explicit list of columns. */
     suspend fun createIndex(
         name: String,
         table: Table,
@@ -530,6 +695,7 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         executeDdl(dev.quwac.kagiroi.sql.createIndex(name, table, unique, comment, configure))
     }
 
+    /** Creates an index whose table is inferred from the configured keys. */
     suspend fun createIndex(
         name: String,
         unique: Boolean = false,
@@ -539,6 +705,7 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         executeDdl(dev.quwac.kagiroi.sql.createIndex(name, unique, comment, configure))
     }
 
+    /** Creates the create index result. */
     suspend fun createIndex(
         name: String,
         table: Table,
@@ -549,6 +716,7 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         executeDdl(dev.quwac.kagiroi.sql.createIndex(name, table, columns, unique, comment))
     }
 
+    /** Creates the index represented by [index]. */
     suspend fun createIndex(index: SchemaIndex) {
         executeDdl(dev.quwac.kagiroi.sql.createIndex(index))
     }
@@ -558,10 +726,12 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         dev.quwac.kagiroi.sql.createIndexes(table).forEach { index -> executeDdl(index) }
     }
 
+    /** Drops the named index from [table]. */
     suspend fun dropIndex(name: String, table: Table) {
         executeDdl(dev.quwac.kagiroi.sql.dropIndex(name, table))
     }
 
+    /** Reads and returns the next value of [sequence]. */
     suspend fun nextSequenceValue(sequence: Sequence): Long {
         executedOperation = true
         return execution.nextSequenceValue(sequence)
@@ -589,6 +759,7 @@ suspend fun <T> SqlExecution.execute(configure: suspend DdlExecutionScope.() -> 
 
 typealias CreateIndexBuilder = SchemaIndexBuilder
 
+/** Builds a CREATE INDEX operation for [table] from typed keys. */
 @OptIn(InternalSchemaDdlApi::class)
 fun createIndex(
     name: String,
@@ -598,6 +769,7 @@ fun createIndex(
     configure: CreateIndexBuilder.() -> Unit,
 ): CreateIndex = CreateIndex(buildSchemaIndex(table, name, unique, comment, configure))
 
+/** Builds a CREATE INDEX operation and infers its table from the configured keys. */
 @OptIn(InternalSchemaDdlApi::class)
 fun createIndex(
     name: String,
@@ -606,6 +778,7 @@ fun createIndex(
     configure: CreateIndexBuilder.() -> Unit,
 ): CreateIndex = CreateIndex(buildSchemaIndex(null, name, unique, comment, configure))
 
+/** Builds a CREATE INDEX operation for the specified physical columns. */
 fun createIndex(
     name: String,
     table: Table,
@@ -635,5 +808,6 @@ fun dropIndex(name: String, table: Table): DropIndex {
     return DropIndex(name, table)
 }
 
+/** Restricts receivers for the typed DDL builder DSL. */
 @DslMarker
 annotation class DdlDsl

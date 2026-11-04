@@ -24,31 +24,71 @@ import dev.quwac.kagiroi.sql.UnsupportedCapability
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-/** Native PostgreSQL column types used by Kagiroi mappings. */
+/** Native PostgreSQL column types used by Kagiroi mappings.
+ *
+ * @property sqlName SQL type name used in DDL.
+ * @property objectId PostgreSQL type OID returned by the server.
+ */
 enum class PostgresType(val sqlName: String, val objectId: Int) {
+    /** Value associated with boolean. */
     BOOLEAN("BOOLEAN", 16),
+
+    /** Value associated with bytea. */
     BYTEA("BYTEA", 17),
+
+    /** Value associated with bigint. */
     BIGINT("BIGINT", 20),
+
+    /** Value associated with smallint. */
     SMALLINT("SMALLINT", 21),
+
+    /** Value associated with integer. */
     INTEGER("INTEGER", 23),
+
+    /** Value associated with text. */
     TEXT("TEXT", 25),
+
+    /** Value associated with real. */
     REAL("REAL", 700),
+
+    /** Value associated with double precision. */
     DOUBLE_PRECISION("DOUBLE PRECISION", 701),
+
+    /** Value associated with character varying. */
     CHARACTER_VARYING("CHARACTER VARYING", 1043),
+
+    /** Value associated with date. */
     DATE("DATE", 1082),
+
+    /** Value associated with time. */
     TIME("TIME WITHOUT TIME ZONE", 1083),
+
+    /** Value associated with timestamp. */
     TIMESTAMP("TIMESTAMP WITHOUT TIME ZONE", 1114),
+
+    /** Value associated with timestamp with time zone. */
     TIMESTAMP_WITH_TIME_ZONE("TIMESTAMP WITH TIME ZONE", 1184),
+
+    /** Value associated with numeric. */
     NUMERIC("NUMERIC", 1700),
+
+    /** Value associated with uuid. */
     UUID("UUID", 2950),
 }
 
-/** Associates a logical Kotlin column type with its native PostgreSQL type. */
+/** Associates a logical Kotlin column type with its native PostgreSQL type.
+ *
+ * @property type logical Kotlin column type.
+ * @property postgresType corresponding PostgreSQL type.
+ */
 data class PostgresTypeMapping<T : Any>(val type: ColumnType<T>, val postgresType: PostgresType)
 
 /** An explicit set of PostgreSQL-specific logical type mappings and transport codecs. */
 interface PostgresExtension {
+    /** Value associated with type mappings. */
     val typeMappings: List<PostgresTypeMapping<*>>
+
+    /** Value associated with type codecs. */
     val typeCodecs: List<SqlTypeCodec<*, *>>
 }
 
@@ -91,6 +131,7 @@ class PostgresTypeRegistry(extensions: Iterable<PostgresExtension> = emptyList()
         }
     }
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): PostgresType? = builtInType(type)
         ?: extensionMappings.firstOrNull { it.type === type }?.postgresType
         ?: (type as? MappedColumnType<*, *>)?.underlyingType?.let(::typeOf)

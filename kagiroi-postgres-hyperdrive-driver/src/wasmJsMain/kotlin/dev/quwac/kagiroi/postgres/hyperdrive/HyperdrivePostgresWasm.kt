@@ -24,9 +24,11 @@ import kotlin.js.unsafeCast
 
 /** The Cloudflare Workers Hyperdrive binding passed through an environment object. */
 external interface CloudflareHyperdriveBinding : JsAny {
+    /** Value associated with connection string. */
     val connectionString: String
 }
 
+/** Provides the hyperdrive postgres database result. */
 fun HyperdrivePostgresDatabase(
     binding: CloudflareHyperdriveBinding,
     configure: HyperdrivePostgresDatabaseConfiguration.() -> Unit = {},

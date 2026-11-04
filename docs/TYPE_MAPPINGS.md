@@ -24,10 +24,11 @@ Columns are `NOT NULL` by default. `nullable()` changes the Kotlin and SQL type.
 | `kotlin.time.Instant` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | `TIMESTAMP WITH TIME ZONE` | `TIMESTAMP(6)` | `DATETIME(6)` | `DATETIMEOFFSET(7)` | `TIMESTAMP(9) WITH TIME ZONE` |
 | `kotlin.time.Duration` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `NVARCHAR(MAX)` | ISO 8601 `VARCHAR2(4000 CHAR)` |
 
-\* SQLite has signed 64-bit `INTEGER` storage. Its local drivers reject an
-`ULong` greater than `Long.MAX_VALUE`; D1 also rejects integer bindings outside
-the JavaScript safe-integer range. Neither transport silently converts those
-values through JavaScript `Number`.
+\* SQLite defaults to `INTEGER` for `ULong` arithmetic and rejects values above
+`Long.MAX_VALUE`. Use `textUlong(name)` for the full range as zero-padded `TEXT`;
+SQLite arithmetic on this mapping is imprecise.
+D1 also rejects integer bindings outside the JavaScript safe-integer range.
+Neither transport silently converts those values through JavaScript `Number`.
 
 † MariaDB native `UUID` requires MariaDB 10.7 or newer. `MariaDbTypes.charUuid`
 and `charUuid(name)` select portable `CHAR(36)`; `MariaDbTypes.binaryUuid` and
@@ -64,13 +65,14 @@ belong in a dialect extension or parameterized raw DDL.
 
 ### SQLite and Cloudflare D1
 
-`SqliteTypes` exposes SQLite storage classes with a fixed scalar contract:
+`SqliteTypes` exposes SQLite storage classes and a full-range `ULong` mapping:
 
 | Factory | DDL | Kotlin transport |
 | --- | --- | --- |
 | `SqliteTypes.integer` | `INTEGER` | `Long` |
 | `SqliteTypes.real` | `REAL` | `Double` |
 | `SqliteTypes.text` | `TEXT` | `String` |
+| `Table.textUlong(name)` / `SqliteTypes.textUlong` | `TEXT` | `ULong` (20-digit zero-padded) |
 | `SqliteTypes.blob` | `BLOB` | `ByteArray` |
 
 `mapped(...)` adds a domain mapping. `named(...)` and `namedText(...)` quote a caller-selected

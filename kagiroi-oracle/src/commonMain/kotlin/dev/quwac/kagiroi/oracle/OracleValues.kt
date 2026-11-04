@@ -24,24 +24,86 @@ import kotlin.uuid.Uuid
 
 /** The exact scalar boundary between Pure Kotlin and the node-oracledb host adapter. */
 sealed interface OracleBinding {
+    /** Represents SQL `NULL`. */
     data object Null : OracleBinding
+
+    /** Character value and optional Oracle type information.
+     *
+     * @property value text to bind.
+     * @property type Oracle type selected for the bind, when known.
+     */
     data class Text(val value: String, val type: OracleType? = null) : OracleBinding
+
+    /** Decimal number encoded as text to preserve precision.
+     *
+     * @property value decimal number text to bind.
+     */
     data class Decimal(val value: String) : OracleBinding
+
+    /** Boolean value to bind.
+     *
+     * @property value boolean value.
+     */
     data class BooleanValue(val value: Boolean) : OracleBinding
+
+    /** Floating-point number to bind.
+     *
+     * @property value number value.
+     */
     data class Floating(val value: Double) : OracleBinding
+
+    /** Binary value and its Oracle storage type.
+     *
+     * @property value bytes to bind.
+     * @property type Oracle type used to store the bytes.
+     */
     data class Bytes(val value: ByteArray, val type: OracleType = OracleType.RAW) : OracleBinding
+
+    /** Temporal value encoded as ISO-8601 text.
+     *
+     * @property iso8601 temporal value in ISO-8601 form.
+     * @property type Oracle temporal type used for the bind.
+     */
     data class Temporal(val iso8601: String, val type: OracleType) : OracleBinding
 }
 
 /** Host values normalized before Kotlin conversion. Oracle NUMBER is always decimal text. */
 sealed interface OracleScalar {
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : OracleScalar
+
+    /** Represents decimal.
+     *
+     * @property value Value associated with value.
+     */
     data class Decimal(val value: String) : OracleScalar
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : OracleScalar
+
+    /** Represents floating.
+     *
+     * @property value Value associated with value.
+     */
     data class Floating(val value: Double) : OracleScalar
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : OracleScalar
 }
 
+/** A scalar value returned from Oracle.
+ *
+ * @property value decoded value, or `null` for SQL `NULL`.
+ */
 data class OracleResultValue(val value: OracleScalar?)
 
 /** Oracle's character empty-string behavior cannot represent a Kotlin empty String. */
@@ -52,6 +114,7 @@ class OracleEmptyStringUnsupported(context: String) :
 
 /** Lossless Oracle scalar conversion. No Oracle NUMBER is accepted from JavaScript Number. */
 class OracleValueCodec(private val codecs: SqlTypeCodecRegistry, private val types: OracleTypeRegistry) {
+    /** Provides the binding result. */
     fun binding(value: Any?, expression: SqlExpression<*>? = null): OracleBinding {
         if (value == null) return OracleBinding.Null
         val logicalType = expression?.storageType
@@ -60,8 +123,9 @@ class OracleValueCodec(private val codecs: SqlTypeCodecRegistry, private val typ
         return bindScalar(encoded?.value ?: value, encoded?.storageType ?: logicalType, targetType)
     }
 
+    /** Decodes the decode result. */
     @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
-    fun decode(column: SqlExpression<*>, result: OracleResultValue): Any? {
+fun decode(column: SqlExpression<*>, result: OracleResultValue): Any? {
         val scalar = result.value
         if (scalar == null) {
             if (column.isNullable) return null
@@ -127,6 +191,7 @@ class OracleValueCodec(private val codecs: SqlTypeCodecRegistry, private val typ
         }
     }
 
+    /** Provides the raw value result. */
     fun rawValue(result: OracleResultValue): Any? = when (val scalar = result.value) {
         null -> null
         is OracleScalar.BooleanValue -> scalar.value

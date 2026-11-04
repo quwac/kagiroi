@@ -77,10 +77,19 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Pool settings implemented privately by node-oracledb Thin pooling. */
 class NodeOraclePoolConfiguration internal constructor() {
+    /** Value associated with min connections. */
     var minConnections: Int = 0
+
+    /** Value associated with max connections. */
     var maxConnections: Int = DEFAULT_MAX_CONNECTIONS
+
+    /** Value associated with increment. */
     var increment: Int = 1
+
+    /** Value associated with acquisition timeout. */
     var acquisitionTimeout: Duration = Duration.ZERO
+
+    /** Value associated with idle timeout. */
     var idleTimeout: Duration = DEFAULT_IDLE_TIMEOUT
 
     internal fun snapshot(): NodeOraclePoolSettings {
@@ -100,17 +109,24 @@ class NodeOraclePoolConfiguration internal constructor() {
 
 /** Direct Oracle settings without exposing node-oracledb Pool or Connection objects. */
 class NodeOracleDatabaseConfiguration internal constructor() {
+    /** Value associated with connect string. */
     var connectString: String? = null
+
+    /** Value associated with user. */
     var user: String? = null
+
+    /** Value associated with password. */
     var password: String? = null
 
     private var poolConfiguration = NodeOraclePoolConfiguration()
     private val extensions = mutableListOf<OracleExtension>()
 
+    /** Provides the pool result. */
     fun pool(configure: NodeOraclePoolConfiguration.() -> Unit) {
         poolConfiguration = NodeOraclePoolConfiguration().apply(configure)
     }
 
+    /** Provides the install result. */
     fun install(extension: OracleExtension) {
         extensions += extension
     }

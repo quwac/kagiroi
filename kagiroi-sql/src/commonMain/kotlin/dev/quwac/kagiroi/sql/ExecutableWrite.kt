@@ -34,6 +34,7 @@ class ExecutableDeleteQuery<S : DeleteQueryState> internal constructor(
         ExecutableDeleteQuery(execution, query.with(*definitions))
 }
 
+/** Inserts the insert into result. */
 fun SqlExecution.insertInto(table: Table): ExecutableInsertQuery<InsertQueryState.Start> =
     ExecutableInsertQuery(this, dev.quwac.kagiroi.sql.insertInto(table))
 
@@ -45,6 +46,7 @@ fun SqlExecution.insertInto(
 ): ExecutableInsertQuery<InsertQueryState.Start> =
     ExecutableInsertQuery(this, dev.quwac.kagiroi.sql.insertInto(table, column, *additionalColumns))
 
+/** Provides the values result. */
 fun <S : InsertQueryState.ValuesAllowed> ExecutableInsertQuery<S>.values(
     block: InsertValuesBuilder.() -> Unit,
 ): ExecutableInsertQuery<InsertQueryState.WithValues> = ExecutableInsertQuery(execution, query.values(block))
@@ -107,9 +109,11 @@ fun <S> ExecutableInsertQuery<S>.withDuplicateKeyUpdate(
     where S : InsertQueryState.Renderable =
     ExecutableInsertQuery(execution, query.withDuplicateKeyUpdate(block))
 
+/** Executes the execute result. */
 suspend fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.execute(): ExecuteResult =
     execution.execute(query)
 
+/** Updates the update result. */
 fun SqlExecution.update(
     table: Table,
     block: UpdateSetBuilder.() -> Unit,
@@ -118,6 +122,7 @@ fun SqlExecution.update(
     dev.quwac.kagiroi.sql.update(table, block),
 )
 
+/** Provides the where result. */
 fun <S : UpdateQueryState.WhereAllowed> ExecutableUpdateQuery<S>.where(
     predicate: SqlPredicate,
 ): ExecutableUpdateQuery<UpdateQueryState.AfterWhere> = ExecutableUpdateQuery(execution, query.where(predicate))
@@ -131,19 +136,24 @@ fun <S> ExecutableUpdateQuery<S>.from(
           S : UpdateQueryState.FromAllowed =
     ExecutableUpdateQuery(execution, query.from(source, *additionalSources))
 
+/** Executes the execute result. */
 suspend fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.execute(): ExecuteResult =
     execution.execute(query)
 
+/** Deletes the delete from result. */
 fun SqlExecution.deleteFrom(table: Table): ExecutableDeleteQuery<DeleteQueryState.Start> =
     ExecutableDeleteQuery(this, dev.quwac.kagiroi.sql.deleteFrom(table))
 
+/** Deletes the delete all from result. */
 fun SqlExecution.deleteAllFrom(table: Table): ExecutableDeleteQuery<DeleteQueryState.AllRows> =
     ExecutableDeleteQuery(this, dev.quwac.kagiroi.sql.deleteAllFrom(table))
 
+/** Provides the where result. */
 fun <S : DeleteQueryState.WhereAllowed> ExecutableDeleteQuery<S>.where(
     predicate: SqlPredicate,
 ): ExecutableDeleteQuery<DeleteQueryState.AfterWhere> = ExecutableDeleteQuery(execution, query.where(predicate))
 
+/** Executes the execute result. */
 suspend fun <S : DeleteQueryState.Renderable> ExecutableDeleteQuery<S>.execute(): ExecuteResult =
     execution.execute(query)
 

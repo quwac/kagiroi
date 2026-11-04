@@ -14,6 +14,7 @@ import kotlin.js.ExperimentalJsExport
 import kotlin.js.JsExport
 import kotlin.js.Promise
 
+/** Runs the run hyperdrive postgres contract result. */
 @JsExport
 fun runHyperdrivePostgresContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
@@ -35,6 +36,7 @@ fun runHyperdrivePostgresContract(binding: CloudflareHyperdriveBinding): Promise
     })
 }
 
+/** Provides the main result. */
 fun main() = Unit
 
 @Suppress("UnusedParameter")

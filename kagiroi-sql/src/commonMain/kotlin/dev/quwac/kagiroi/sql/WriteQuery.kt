@@ -12,22 +12,34 @@ import dev.quwac.kagiroi.schema.WritableColumn
 
 /** One typed assignment to a writable column. */
 sealed interface WriteAssignment {
+    /** Writable target column assigned by this node. */
     val column: WritableColumn<*>
 }
 
-/** A typed value assigned to one column by an INSERT or UPDATE query. */
+/** A typed value assigned to one column by an INSERT or UPDATE query.
+ *
+ * @property column writable target column.
+ * @property value Kotlin value assigned to the column.
+ */
 class ColumnAssignment<T> internal constructor(override val column: WritableColumn<T>, val value: T) :
     WriteAssignment {
     internal fun storageValue(): Any? = column.toStorageValue(value)
 }
 
-/** A typed SQL expression assigned to one writable UPDATE-style target column. */
+/** A typed SQL expression assigned to one writable UPDATE-style target column.
+ *
+ * @property column writable target column.
+ * @property expression same-mapped expression assigned to the column.
+ */
 class ExpressionAssignment<T> internal constructor(
     override val column: WritableColumn<T>,
     val expression: SqlExpression<T>,
 ) : WriteAssignment
 
-/** One row of explicitly assigned INSERT values. Unassigned columns are absent from [assignments]. */
+/** One row of explicitly assigned INSERT values. Unassigned columns are absent from [assignments].
+ *
+ * @property assignments column/value pairs present in this row.
+ */
 class InsertRow internal constructor(val assignments: List<ColumnAssignment<*>>)
 
 /** The mutually exclusive source of an INSERT statement. */
@@ -41,20 +53,26 @@ internal sealed interface InsertSource {
 
 /** Compile-time state for an INSERT query. */
 sealed interface InsertQueryState {
+    /** State permits adding VALUES rows. */
     sealed interface ValuesAllowed : InsertQueryState
 
+    /** State permits attaching an INSERT ... SELECT source. */
     sealed interface QueryAllowed : InsertQueryState
 
+    /** State contains a complete INSERT source and can be rendered. */
     sealed interface Renderable : InsertQueryState
 
+    /** Initial state before an INSERT source is added. */
     sealed interface Start :
         ValuesAllowed,
         QueryAllowed
 
+    /** State after one or more VALUES rows have been added. */
     sealed interface WithValues :
         ValuesAllowed,
         Renderable
 
+    /** State after an INSERT ... SELECT source has been attached. */
     sealed interface WithQuery : Renderable
 }
 
@@ -64,6 +82,8 @@ sealed interface InsertQueryState {
  * [source] is deliberately a sum type: one statement has either VALUES rows or one query source,
  * never both. Query source target columns are retained with the AST rather than interpolating a
  * rendered SELECT string into an INSERT.
+ *
+ * @property into target table for the INSERT.
  */
 class InsertQuery<S : InsertQueryState> internal constructor(
     val into: Table,
@@ -84,6 +104,7 @@ class InsertQuery<S : InsertQueryState> internal constructor(
 class InsertValuesBuilder internal constructor(private val table: Table) {
     private val assignments = mutableListOf<ColumnAssignment<*>>()
 
+    /** Assigns [value] to [column] in the row being built. */
     fun <T> set(column: WritableColumn<T>, value: T) {
         table.requireRegisteredColumn(column, "INSERT")
         require(assignments.none { it.column === column }) { "INSERT column is assigned more than once: $column" }
@@ -96,6 +117,7 @@ class InsertValuesBuilder internal constructor(private val table: Table) {
     }
 }
 
+/** Starts a typed INSERT into [table]. */
 fun insertInto(table: Table): InsertQuery<InsertQueryState.Start> = InsertQuery(table)
 
 /** Starts a typed INSERT ... SELECT with its explicit writable target columns. */
@@ -112,6 +134,7 @@ fun insertInto(
     return InsertQuery(table, pendingTargetColumns = targetColumns)
 }
 
+/** Adds one VALUES row using the supplied typed assignments. */
 fun <S : InsertQueryState.ValuesAllowed> InsertQuery<S>.values(
     block: InsertValuesBuilder.() -> Unit,
 ): InsertQuery<InsertQueryState.WithValues> {
@@ -174,25 +197,36 @@ fun <S : InsertQueryState> InsertQuery<S>.with(vararg definitions: CommonTableEx
 
 /** Compile-time state for an UPDATE query. */
 sealed interface UpdateQueryState {
+    /** State permits adding a WHERE predicate. */
     sealed interface WhereAllowed : UpdateQueryState
 
+    /** State permits adding UPDATE ... FROM sources. */
     sealed interface FromAllowed : UpdateQueryState
 
+    /** State contains assignments and can be rendered. */
     sealed interface Renderable : UpdateQueryState
 
+    /** State after SET assignments have been added. */
     sealed interface AfterSet :
         WhereAllowed,
         FromAllowed,
         Renderable
 
+    /** State after UPDATE ... FROM sources have been added. */
     sealed interface AfterFrom :
         WhereAllowed,
         Renderable
 
+    /** State after a WHERE predicate has been added. */
     sealed interface AfterWhere : Renderable
 }
 
-/** An immutable UPDATE query model. */
+/** An immutable UPDATE query model.
+ *
+ * @property table table whose rows are updated.
+ * @property assignments typed column assignments.
+ * @property predicate optional WHERE predicate.
+ */
 class UpdateQuery<S : UpdateQueryState> internal constructor(
     val table: Table,
     val assignments: List<WriteAssignment>,
@@ -208,6 +242,7 @@ class UpdateQuery<S : UpdateQueryState> internal constructor(
 class UpdateSetBuilder internal constructor(private val table: Table) {
     private val assignments = mutableListOf<WriteAssignment>()
 
+    /** Assigns [value] to [column]. */
     fun <T> set(column: WritableColumn<T>, value: T) {
         table.requireRegisteredColumn(column, "UPDATE")
         require(assignments.none { it.column === column }) { "UPDATE column is assigned more than once: $column" }
@@ -228,6 +263,7 @@ class UpdateSetBuilder internal constructor(private val table: Table) {
     }
 }
 
+/** Starts an UPDATE query for [table] and collects its SET assignments. */
 fun update(table: Table, block: UpdateSetBuilder.() -> Unit): UpdateQuery<UpdateQueryState.AfterSet> =
     UpdateQuery(table, UpdateSetBuilder(table).apply(block).build())
 
@@ -255,6 +291,7 @@ fun <S> UpdateQuery<S>.from(
     return UpdateQuery(table, assignments, predicate, withClause, allSources)
 }
 
+/** Restricts updated rows to those matching [predicate]. */
 fun <S : UpdateQueryState.WhereAllowed> UpdateQuery<S>.where(
     predicate: SqlPredicate,
 ): UpdateQuery<UpdateQueryState.AfterWhere> {
@@ -281,18 +318,27 @@ fun <S : UpdateQueryState> UpdateQuery<S>.with(vararg definitions: CommonTableEx
 
 /** Compile-time state for a DELETE query. */
 sealed interface DeleteQueryState {
+    /** State permits adding a WHERE predicate. */
     sealed interface WhereAllowed : DeleteQueryState
 
+    /** State can be rendered as a DELETE statement. */
     sealed interface Renderable : DeleteQueryState
 
+    /** Initial state requiring a WHERE predicate before rendering. */
     sealed interface Start : WhereAllowed
 
+    /** State after a WHERE predicate has been added. */
     sealed interface AfterWhere : Renderable
 
+    /** State that explicitly represents deleting every row. */
     sealed interface AllRows : Renderable
 }
 
-/** An immutable DELETE query model. */
+/** An immutable DELETE query model.
+ *
+ * @property from table whose rows are deleted.
+ * @property predicate optional WHERE predicate.
+ */
 class DeleteQuery<S : DeleteQueryState> internal constructor(
     val from: Table,
     val predicate: SqlPredicate? = null,
@@ -301,10 +347,13 @@ class DeleteQuery<S : DeleteQueryState> internal constructor(
     override fun withCtes(vararg definitions: CommonTableExpression): DeleteQuery<S> = with(*definitions)
 }
 
+/** Starts a DELETE query for [table] that requires a WHERE predicate. */
 fun deleteFrom(table: Table): DeleteQuery<DeleteQueryState.Start> = DeleteQuery(table)
 
+/** Starts an explicit DELETE-all-rows query for [table]. */
 fun deleteAllFrom(table: Table): DeleteQuery<DeleteQueryState.AllRows> = DeleteQuery(table)
 
+/** Restricts deleted rows to those matching [predicate]. */
 fun <S : DeleteQueryState.WhereAllowed> DeleteQuery<S>.where(
     predicate: SqlPredicate,
 ): DeleteQuery<DeleteQueryState.AfterWhere> {

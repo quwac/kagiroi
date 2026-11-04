@@ -71,14 +71,18 @@ class D1Database internal constructor(
     override suspend fun <T> transaction(block: suspend SqlTransaction.() -> T): T =
         throw UnsupportedCapability(SqlCapabilities.Transactions.name)
 
+    /** Provides the batch result. */
     suspend fun batch(statements: NonEmptyList<D1BatchStatement>): List<D1BatchResult> = execution.batch(statements)
 
+    /** Provides the batch result. */
     suspend fun batch(first: D1BatchStatement, vararg remaining: D1BatchStatement): List<D1BatchResult> =
         batch(nonEmptyListOf(first, *remaining))
 
+    /** Provides the batch result. */
     suspend fun batch(block: D1BatchBuilder.() -> Unit): List<D1BatchResult> =
         execution.batch(D1BatchBuilder().apply(block).build())
 
+    /** Provides the session result. */
     fun session(start: D1SessionStart = D1SessionStart.Unconstrained): D1Session {
         ensureOpen()
         check(endpoint.supportsSessions) { "D1 Sessions are not available for this D1 endpoint" }
@@ -86,6 +90,7 @@ class D1Database internal constructor(
         return D1Session(D1Execution(sessionEndpoint, execution.codecs, ::ensureOpen), sessionEndpoint, dialect)
     }
 
+    /** Provides the session result. */
     fun session(after: D1Bookmark): D1Session = session(D1SessionStart.After(after))
 
     override suspend fun close() {
@@ -108,9 +113,11 @@ class D1Database internal constructor(
     }
 }
 
+/** Represents d1 database configuration. */
 class D1DatabaseConfiguration internal constructor() {
     private val extensions = mutableListOf<SqliteExtension>()
 
+    /** Provides the install result. */
     fun install(extension: SqliteExtension) {
         extensions += extension
     }

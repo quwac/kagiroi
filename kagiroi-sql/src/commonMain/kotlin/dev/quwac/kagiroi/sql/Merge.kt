@@ -7,14 +7,28 @@ import dev.quwac.kagiroi.schema.Table
 import dev.quwac.kagiroi.schema.WritableColumn
 
 /** Dialect-specific MERGE grammar. */
-enum class SqlMergeKind { SQL_SERVER, ORACLE }
+enum class SqlMergeKind {
+    /** SQL Server's `MERGE` grammar. */
+    SQL_SERVER,
+
+    /** Oracle's `MERGE` grammar. */
+    ORACLE,
+}
 
 /** A dialect that can render a specific native MERGE grammar. */
 interface SqlMergeDialect {
+    /** Value associated with merge kind. */
     val mergeKind: SqlMergeKind
 }
 
-/** A typed native MERGE with an aliased table or derived query source. */
+/** A typed native MERGE with an aliased table or derived query source.
+ *
+ * @property kind dialect-specific MERGE grammar to render.
+ * @property target table whose rows are changed.
+ * @property source relation supplying candidate rows.
+ * @property on predicate matching source and target rows.
+ * @property clauses ordered actions for matched and unmatched rows.
+ */
 class MergeQuery internal constructor(
     val kind: SqlMergeKind,
     val target: Table,
@@ -35,11 +49,13 @@ internal class MergeClause(val match: MergeMatch, val predicate: SqlPredicate?, 
 class MergeAssignments internal constructor(private val target: Table, private val sources: List<RelationSource>) {
     private val assignments = mutableListOf<WriteAssignment>()
 
+    /** Provides the set result. */
     fun <T> set(column: WritableColumn<T>, value: T) {
         validateColumn(column)
         assignments += ColumnAssignment(column, value)
     }
 
+    /** Provides the set result. */
     fun <T> set(column: WritableColumn<T>, expression: SqlExpression<T>) {
         validateColumn(column)
         requireCompatibleWriteExpression(column, expression, "MERGE")
@@ -94,20 +110,25 @@ class SqlServerMergeBuilder internal constructor(private val target: Table, priv
     private val clauses = mutableListOf<MergeClause>()
     private val both get() = listOf(target, source)
 
+    /** Provides the when matched update result. */
     fun whenMatchedUpdate(where: SqlPredicate? = null, block: MergeAssignments.() -> Unit) =
         add(MergeMatch.MATCHED, where, MergeAction.Update(mergeAssignments(target, both, block)))
 
+    /** Provides the when matched delete result. */
     fun whenMatchedDelete(where: SqlPredicate? = null) = add(MergeMatch.MATCHED, where, MergeAction.Delete)
 
+    /** Provides the when not matched insert result. */
     fun whenNotMatchedInsert(where: SqlPredicate? = null, block: MergeAssignments.() -> Unit) =
         add(MergeMatch.NOT_MATCHED, where, MergeAction.Insert(mergeAssignments(target, listOf(source), block)))
 
+    /** Provides the when not matched by source update result. */
     fun whenNotMatchedBySourceUpdate(where: SqlPredicate? = null, block: MergeAssignments.() -> Unit) = add(
         MergeMatch.NOT_MATCHED_BY_SOURCE,
         where,
         MergeAction.Update(mergeAssignments(target, listOf(target), block)),
     )
 
+    /** Provides the when not matched by source delete result. */
     fun whenNotMatchedBySourceDelete(where: SqlPredicate? = null) =
         add(MergeMatch.NOT_MATCHED_BY_SOURCE, where, MergeAction.Delete)
 
@@ -139,6 +160,7 @@ class OracleMergeBuilder internal constructor(private val target: Table, private
     private val clauses = mutableListOf<MergeClause>()
     private val both get() = listOf(target, source)
 
+    /** Provides the when matched update result. */
     fun whenMatchedUpdate(
         where: SqlPredicate? = null,
         deleteWhere: SqlPredicate? = null,
@@ -154,6 +176,7 @@ class OracleMergeBuilder internal constructor(private val target: Table, private
         )
     }
 
+    /** Provides the when not matched insert result. */
     fun whenNotMatchedInsert(where: SqlPredicate? = null, block: MergeAssignments.() -> Unit) {
         require(clauses.none { it.match == MergeMatch.NOT_MATCHED }) { "Oracle MERGE already has an insert clause" }
         where?.requireMergeScope(listOf(source))

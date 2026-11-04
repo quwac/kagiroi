@@ -4,69 +4,88 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Describes the Kotlin value accepted by a column without selecting a database storage type. */
+/** Describes the Kotlin value accepted by a column without selecting a database storage type.
+ *
+ * @property name stable human-readable name of the Kotlin value type.
+ */
 abstract class ColumnType<T : Any>(val name: String)
 
+/** Column type for Kotlin [String] values. */
 object StringColumnType : ColumnType<String>("String"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.string")
 }
 
+/** Column type for Kotlin [Byte] values. */
 object ByteColumnType : ColumnType<Byte>("Byte"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.int8")
 }
 
+/** Column type for Kotlin [Short] values. */
 object ShortColumnType : ColumnType<Short>("Short"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.int16")
 }
 
+/** Column type for Kotlin [Int] values. */
 object IntColumnType : ColumnType<Int>("Int"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.int32")
 }
 
+/** Column type for Kotlin [Long] values. */
 object LongColumnType : ColumnType<Long>("Long"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.int64")
 }
 
+/** Column type for Kotlin [Float] values. */
 object FloatColumnType : ColumnType<Float>("Float"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.float32")
 }
 
+/** Column type for Kotlin [Double] values. */
 object DoubleColumnType : ColumnType<Double>("Double"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.float64")
 }
 
+/** Column type for Kotlin [UByte] values. */
 object UByteColumnType : ColumnType<UByte>("UByte"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.uint8")
 }
 
+/** Column type for Kotlin [UShort] values. */
 object UShortColumnType : ColumnType<UShort>("UShort"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.uint16")
 }
 
+/** Column type for Kotlin [UInt] values. */
 object UIntColumnType : ColumnType<UInt>("UInt"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.uint32")
 }
 
+/** Column type for Kotlin [ULong] values. */
 object ULongColumnType : ColumnType<ULong>("ULong"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.uint64")
 }
 
+/** Column type for Kotlin [Boolean] values. */
 object BooleanColumnType : ColumnType<Boolean>("Boolean"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.boolean")
 }
 
+/** Column type for Kotlin [ByteArray] values. */
 object ByteArrayColumnType : ColumnType<ByteArray>("ByteArray"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.bytes")
 }
 
+/** Column type for Kotlin [Instant] values. */
 object InstantColumnType : ColumnType<Instant>("Instant"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.instant")
 }
 
+/** Column type for Kotlin [Duration] values. */
 object DurationColumnType : ColumnType<Duration>("Duration"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.duration")
 }
 
+/** Column type for Kotlin [Uuid] values. */
 object UuidColumnType : ColumnType<Uuid>("Uuid"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.uuid")
 }
@@ -75,13 +94,28 @@ object UuidColumnType : ColumnType<Uuid>("Uuid"), StableSchemaColumnType {
 sealed class Column<T> protected constructor(internal val definition: ColumnDefinition) :
     GeneratedColumnExpression<T>,
     NamedRelationColumn<T & Any> {
+    /** Table that owns this column. */
     val table: Table get() = definition.table
+
+    /** Name of this column in [table]. */
     val name: String get() = definition.name
+
+    /** Kotlin value type declared for this column. */
     override val type: ColumnType<*> get() = definition.type
+
+    /** Physical storage type used by the database driver. */
     override val storageType: ColumnType<*> get() = definition.storageType
+
+    /** Whether this column permits SQL `NULL` values. */
     override val isNullable: Boolean get() = definition.isNullable
+
+    /** Whether this column participates in the table's primary key. */
     val isPrimaryKey: Boolean get() = definition.isPrimaryKey
+
+    /** Whether this column has a uniqueness constraint. */
     val isUnique: Boolean get() = definition.isUnique
+
+    /** Whether this column is a logical computed expression. */
     val isComputed: Boolean get() = definition.isComputed
 
     /** Native identity allocation metadata, or `null` when this is not an identity column. */
@@ -131,8 +165,10 @@ sealed class Column<T> protected constructor(internal val definition: ColumnDefi
         return definition.decode(value) as T
     }
 
+    /** Returns this column's qualified table and column name. */
     override fun toString(): String = "${table.tableName}.$name"
 
+    /** The sole relation column referenced by this column expression. */
     override val referencedColumns: List<Column<*>> get() = listOf(this)
 }
 

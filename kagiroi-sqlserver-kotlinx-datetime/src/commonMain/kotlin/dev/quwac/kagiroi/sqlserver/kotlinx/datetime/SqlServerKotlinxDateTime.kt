@@ -21,14 +21,17 @@ import kotlinx.datetime.UtcOffset
 
 /** Explicit local temporal mappings for SQL Server DATE, TIME, and DATETIME2. */
 object SqlServerKotlinxDateTimeMappings {
+    /** Value associated with local date. */
     val localDate: ColumnMapping<LocalDate, String> = columnMapping(LocalDate::parse, LocalDate::toString)
 
+    /** Provides the local time result. */
     fun localTime(fractionalSecondsPrecision: Int = DEFAULT_PRECISION): ColumnMapping<LocalTime, String> =
         columnMapping(
             LocalTime::parse,
             { value -> value.toString().requirePrecision(fractionalSecondsPrecision, "TIME") },
         )
 
+    /** Provides the local date time result. */
     fun localDateTime(fractionalSecondsPrecision: Int = DEFAULT_PRECISION): ColumnMapping<LocalDateTime, String> =
         columnMapping(
             { LocalDateTime.parse(it.replaceFirst(' ', 'T')) },

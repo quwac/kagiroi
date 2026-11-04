@@ -8,10 +8,13 @@ package dev.quwac.kagiroi.schema
  * [String]. The physical SQL declaration remains a dialect concern.
  */
 interface StorageMappedColumnType {
+    /** Scalar column type used to encode and decode this mapped value. */
     val storageType: ColumnType<*>
 
+    /** Encodes an application value into the scalar representation. */
     fun encodeStorageValue(value: Any): Any
 
+    /** Decodes a scalar representation into the application value. */
     fun decodeStorageValue(value: Any): Any
 }
 

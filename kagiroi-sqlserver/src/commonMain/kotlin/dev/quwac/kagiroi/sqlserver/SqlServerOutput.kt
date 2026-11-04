@@ -27,6 +27,7 @@ fun <T> inserted(column: Column<T>): SqlServerOutputColumn<T> =
 fun <T> deleted(column: Column<T>): SqlServerOutputColumn<T> =
     SqlServerOutputColumn(SqlDmlOutputColumn(SqlDmlOutputImage.BEFORE, column))
 
+/** Provides the output result. */
 fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.output(
     column: SqlServerOutputColumn<*>,
     vararg additionalColumns: SqlServerOutputColumn<*>,
@@ -35,6 +36,7 @@ fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.output(
     setOf(SqlDmlOutputImage.AFTER),
 )
 
+/** Provides the output result. */
 fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.output(
     column: SqlServerOutputColumn<*>,
     vararg additionalColumns: SqlServerOutputColumn<*>,
@@ -43,6 +45,7 @@ fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.output(
     setOf(SqlDmlOutputImage.BEFORE, SqlDmlOutputImage.AFTER),
 )
 
+/** Provides the output result. */
 fun <S : DeleteQueryState.Renderable> ExecutableDeleteQuery<S>.output(
     column: SqlServerOutputColumn<*>,
     vararg additionalColumns: SqlServerOutputColumn<*>,

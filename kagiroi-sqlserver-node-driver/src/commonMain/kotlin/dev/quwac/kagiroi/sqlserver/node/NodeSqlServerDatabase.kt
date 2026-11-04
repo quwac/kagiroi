@@ -62,15 +62,25 @@ import kotlin.time.Duration.Companion.seconds
 
 /** TLS behavior for direct mssql connections. Secure certificate verification is the default. */
 enum class NodeSqlServerTlsMode {
+    /** Value associated with disabled. */
     DISABLED,
+
+    /** Value associated with require. */
     REQUIRE,
+
+    /** Value associated with verify full. */
     VERIFY_FULL,
 }
 
 /** TLS inputs kept independent from Node.js TLS and tedious option types. */
 class NodeSqlServerTlsConfiguration internal constructor() {
+    /** Value associated with mode. */
     var mode: NodeSqlServerTlsMode = NodeSqlServerTlsMode.VERIFY_FULL
+
+    /** Value associated with certificate authority. */
     var certificateAuthority: String? = null
+
+    /** Value associated with host name in certificate. */
     var hostNameInCertificate: String? = null
 
     internal fun snapshot(): NodeSqlServerTlsSettings {
@@ -86,9 +96,16 @@ class NodeSqlServerTlsConfiguration internal constructor() {
 
 /** Connection-pool settings implemented by node-mssql. */
 class NodeSqlServerPoolConfiguration internal constructor() {
+    /** Value associated with min connections. */
     var minConnections: Int = 0
+
+    /** Value associated with max connections. */
     var maxConnections: Int = DEFAULT_MAX_CONNECTIONS
+
+    /** Value associated with connection timeout. */
     var connectionTimeout: Duration = DEFAULT_CONNECTION_TIMEOUT
+
+    /** Value associated with idle timeout. */
     var idleTimeout: Duration = DEFAULT_IDLE_TIMEOUT
 
     internal fun snapshot(): NodeSqlServerPoolSettings {
@@ -106,25 +123,39 @@ class NodeSqlServerPoolConfiguration internal constructor() {
 
 /** Direct Node SQL Server configuration without exposing mssql pools, requests, or tedious types. */
 class NodeSqlServerDatabaseConfiguration internal constructor() {
+    /** Value associated with host. */
     var host: String? = null
+
+    /** Value associated with port. */
     var port: Int = DEFAULT_SQL_SERVER_PORT
+
+    /** Value associated with database. */
     var database: String? = null
+
+    /** Value associated with user. */
     var user: String? = null
+
+    /** Value associated with password. */
     var password: String? = null
+
+    /** Value associated with request timeout. */
     var requestTimeout: Duration = DEFAULT_REQUEST_TIMEOUT
 
     private var poolConfiguration = NodeSqlServerPoolConfiguration()
     private var tlsConfiguration = NodeSqlServerTlsConfiguration()
     private val extensions = mutableListOf<SqlServerExtension>()
 
+    /** Provides the pool result. */
     fun pool(configure: NodeSqlServerPoolConfiguration.() -> Unit) {
         poolConfiguration = NodeSqlServerPoolConfiguration().apply(configure)
     }
 
+    /** Provides the tls result. */
     fun tls(configure: NodeSqlServerTlsConfiguration.() -> Unit = {}) {
         tlsConfiguration = NodeSqlServerTlsConfiguration().apply(configure)
     }
 
+    /** Provides the install result. */
     fun install(extension: SqlServerExtension) {
         extensions += extension
     }

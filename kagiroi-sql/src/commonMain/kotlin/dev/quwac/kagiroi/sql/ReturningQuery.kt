@@ -5,8 +5,10 @@ import dev.quwac.kagiroi.schema.Table
 
 /** A typed write query whose affected rows are returned to the application. */
 sealed interface ReturningQuery {
+    /** Value associated with table. */
     val table: Table
 
+    /** Value associated with columns. */
     val columns: List<Column<*>>
 }
 
@@ -34,16 +36,19 @@ class ReturningDeleteQuery<S : DeleteQueryState.Renderable> internal constructor
     override val table: Table = query.from
 }
 
+/** Returns the returning result. */
 fun <S : InsertQueryState.Renderable> InsertQuery<S>.returning(
     column: Column<*>,
     vararg additionalColumns: Column<*>,
 ): ReturningInsertQuery<S> = ReturningInsertQuery(this, returningColumns(into, column, additionalColumns))
 
+/** Returns the returning result. */
 fun <S : UpdateQueryState.Renderable> UpdateQuery<S>.returning(
     column: Column<*>,
     vararg additionalColumns: Column<*>,
 ): ReturningUpdateQuery<S> = ReturningUpdateQuery(this, returningColumns(table, column, additionalColumns))
 
+/** Returns the returning result. */
 fun <S : DeleteQueryState.Renderable> DeleteQuery<S>.returning(
     column: Column<*>,
     vararg additionalColumns: Column<*>,

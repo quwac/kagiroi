@@ -72,9 +72,16 @@ enum class NodePostgresTlsMode {
 
 /** TLS inputs kept independent of Node.js TLS object types. */
 class NodePostgresTlsConfiguration internal constructor() {
+    /** Value associated with mode. */
     var mode: NodePostgresTlsMode = NodePostgresTlsMode.VERIFY_FULL
+
+    /** Value associated with certificate authority. */
     var certificateAuthority: String? = null
+
+    /** Value associated with client certificate. */
     var clientCertificate: String? = null
+
+    /** Value associated with client private key. */
     var clientPrivateKey: String? = null
 
     internal fun snapshot(): NodePostgresTlsSettings {
@@ -99,9 +106,16 @@ class NodePostgresTlsConfiguration internal constructor() {
 
 /** Connection-pool settings implemented by node-postgres. */
 class NodePostgresPoolConfiguration internal constructor() {
+    /** Value associated with min connections. */
     var minConnections: Int = 0
+
+    /** Value associated with max connections. */
     var maxConnections: Int = DEFAULT_MAX_CONNECTIONS
+
+    /** Value associated with connection timeout. */
     var connectionTimeout: Duration = Duration.ZERO
+
+    /** Value associated with idle timeout. */
     var idleTimeout: Duration = DEFAULT_IDLE_TIMEOUT
 
     internal fun snapshot(): NodePostgresPoolSettings {
@@ -119,24 +133,36 @@ class NodePostgresPoolConfiguration internal constructor() {
 
 /** Direct PostgreSQL settings without exposing pg.Pool, pg.Client, or Node.js TLS values. */
 class NodePostgresDatabaseConfiguration internal constructor(private val connectionUrl: String?) {
+    /** Value associated with host. */
     var host: String? = null
+
+    /** Value associated with port. */
     var port: Int = DEFAULT_POSTGRES_PORT
+
+    /** Value associated with database. */
     var database: String? = null
+
+    /** Value associated with user. */
     var user: String? = null
+
+    /** Value associated with password. */
     var password: String? = null
 
     private var poolConfiguration = NodePostgresPoolConfiguration()
     private var tlsConfiguration: NodePostgresTlsConfiguration? = null
     private val extensions = mutableListOf<PostgresExtension>()
 
+    /** Provides the pool result. */
     fun pool(configure: NodePostgresPoolConfiguration.() -> Unit) {
         poolConfiguration = NodePostgresPoolConfiguration().apply(configure)
     }
 
+    /** Provides the tls result. */
     fun tls(configure: NodePostgresTlsConfiguration.() -> Unit = {}) {
         tlsConfiguration = NodePostgresTlsConfiguration().apply(configure)
     }
 
+    /** Provides the install result. */
     fun install(extension: PostgresExtension) {
         extensions += extension
     }

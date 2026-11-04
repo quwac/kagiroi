@@ -22,20 +22,56 @@ import kotlin.uuid.Uuid
 
 /** A parameter value before the target-specific node-postgres bridge. */
 sealed interface PostgresBinding {
+    /** Represents null. */
     data object Null : PostgresBinding
+
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : PostgresBinding
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : PostgresBinding
+
+    /** Represents integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Integer(val decimal: String) : PostgresBinding
+
+    /** Represents real.
+     *
+     * @property value Value associated with value.
+     */
     data class Real(val value: Double) : PostgresBinding
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : PostgresBinding
+
+    /** Represents uuid value.
+     *
+     * @property value Value associated with value.
+     */
     data class UuidValue(val value: Uuid) : PostgresBinding
 }
 
-/** One PostgreSQL text-format field paired with the server's type OID. */
+/** One PostgreSQL text-format field paired with the server's type OID.
+ *
+ * @property typeObjectId PostgreSQL type OID for the field.
+ * @property text field value in PostgreSQL text format, or `null` for SQL `NULL`.
+ */
 data class PostgresResultValue(val typeObjectId: Int, val text: String?)
 
 /** PostgreSQL scalar conversion shared by Hyperdrive target adapters. */
 class PostgresValueCodec(private val codecs: SqlTypeCodecRegistry) {
+    /** Provides the binding result. */
     fun binding(value: Any?, expression: SqlExpression<*>? = null): PostgresBinding {
         if (value == null) return PostgresBinding.Null
         val columnType = expression?.storageType
@@ -43,6 +79,7 @@ class PostgresValueCodec(private val codecs: SqlTypeCodecRegistry) {
         return bindScalar(encoded?.value ?: value, encoded?.storageType ?: columnType)
     }
 
+    /** Decodes the decode result. */
     @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
     fun decode(column: SqlExpression<*>, value: PostgresResultValue): Any? {
         val text = value.text
@@ -81,6 +118,7 @@ class PostgresValueCodec(private val codecs: SqlTypeCodecRegistry) {
         }
     }
 
+    /** Provides the raw value result. */
     fun rawValue(value: PostgresResultValue): Any? {
         val text = value.text ?: return null
         return when (value.typeObjectId) {

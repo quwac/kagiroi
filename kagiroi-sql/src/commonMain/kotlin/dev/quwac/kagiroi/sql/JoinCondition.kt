@@ -14,10 +14,16 @@ import dev.quwac.kagiroi.schema.SqlExpression
  * ON predicate does not have.
  */
 sealed interface JoinCondition {
-    /** A regular Boolean predicate rendered after `ON`. */
+    /** A regular Boolean predicate rendered after `ON`.
+     *
+     * @property predicate predicate evaluated for the joined rows.
+     */
     class On internal constructor(val predicate: SqlPredicate) : JoinCondition
 
-    /** One or more same-named relation columns rendered after `USING`. */
+    /** One or more same-named relation columns rendered after `USING`.
+     *
+     * @property pairs ordered column pairs in the USING clause.
+     */
     class Using internal constructor(val pairs: NonEmptyList<UsingColumnPair<*>>) : JoinCondition
 }
 
@@ -26,6 +32,9 @@ sealed interface JoinCondition {
  *
  * Construction is kept inside the JOIN builder so both operands can be checked against the left
  * query scope and the relation introduced by the current JOIN.
+ *
+ * @property left named column from the existing query relations.
+ * @property right same-named column from the relation being joined.
  */
 class UsingColumnPair<T : Any> internal constructor(
     val left: NamedRelationColumn<T>,
@@ -84,8 +93,12 @@ class JoinUsingBuilder internal constructor(
     )
 }
 
-/** A dialect capability whose native syntax is required to preserve JOIN USING semantics. */
+/** A dialect capability whose native syntax is required to preserve JOIN USING semantics.
+ *
+ * @property unsupportedCapability identifier used when the dialect rejects this capability.
+ */
 enum class SqlJoinCapability(val unsupportedCapability: String) {
+    /** Native `JOIN ... USING (...)` syntax. */
     Using("join-using"),
 }
 

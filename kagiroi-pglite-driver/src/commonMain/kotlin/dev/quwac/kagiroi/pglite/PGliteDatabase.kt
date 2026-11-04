@@ -63,10 +63,16 @@ sealed interface PGliteStorage {
     /** Ephemeral storage available on every PGlite host. */
     data object Memory : PGliteStorage
 
-    /** A Node.js or Bun filesystem directory. */
+    /** A Node.js or Bun filesystem directory.
+     *
+     * @property path Value associated with path.
+     */
     data class FileSystem(val path: String) : PGliteStorage
 
-    /** A browser IndexedDB database name. */
+    /** A browser IndexedDB database name.
+     *
+     * @property name Value associated with name.
+     */
     data class IndexedDb(val name: String) : PGliteStorage
 }
 
@@ -331,6 +337,7 @@ class PGliteDatabase private constructor(
         }
     }
 
+    /** Represents companion. */
     companion object {
         /** Creates an ephemeral in-memory PGlite database. */
         suspend fun inMemory(configure: PGliteDatabaseConfiguration.() -> Unit = {}): PGliteDatabase =

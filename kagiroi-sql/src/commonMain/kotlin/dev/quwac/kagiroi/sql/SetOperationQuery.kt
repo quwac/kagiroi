@@ -13,13 +13,27 @@ interface QueryExpression<T, P : SelectProjectionShape> {
     val columns: List<SqlExpression<*>>
 }
 
-/** SQL duplicate semantics selected by a typed set-operation method. */
+/** SQL duplicate semantics selected by a typed set-operation method.
+ *
+ * @property sql SQL operator clause.
+ */
 enum class SetOperation(val sql: String, internal val unsupportedCapability: String) {
+    /** Combines results and removes duplicate rows. */
     Union("UNION", "union"),
+
+    /** Combines results and retains duplicate rows. */
     UnionAll("UNION ALL", "union-all"),
+
+    /** Returns rows present in both inputs and removes duplicates. */
     Intersect("INTERSECT", "intersect"),
+
+    /** Returns the duplicate-preserving intersection of the inputs. */
     IntersectAll("INTERSECT ALL", "intersect-all"),
+
+    /** Returns rows from the left input that are absent from the right input. */
     Except("EXCEPT", "except"),
+
+    /** Returns the duplicate-preserving difference of the inputs. */
     ExceptAll("EXCEPT ALL", "except-all"),
 }
 
@@ -28,6 +42,10 @@ enum class SetOperation(val sql: String, internal val unsupportedCapability: Str
  *
  * Its output schema is exactly [left]'s projection schema: SQL output names, typed projection
  * handles, and row decoders therefore remain stable even if [right] uses other aliases.
+ *
+ * @property order ordering applied after the set operation.
+ * @property limit maximum number of result rows, when specified.
+ * @property offset number of result rows skipped, when specified.
  */
 class SetOperationQuery<T, P : SelectProjectionShape> internal constructor(
     internal val left: QueryExpression<T, P>,

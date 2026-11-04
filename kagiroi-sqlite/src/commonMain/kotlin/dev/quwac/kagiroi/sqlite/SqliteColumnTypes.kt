@@ -12,6 +12,8 @@ import dev.quwac.kagiroi.schema.StableSchemaColumnType
 import dev.quwac.kagiroi.schema.StringColumnType
 import dev.quwac.kagiroi.schema.columnMapping
 
+private const val ULONG_DECIMAL_WIDTH = 20
+
 /**
  * A SQLite declared column type with an explicit scalar transport mapping.
  *
@@ -43,9 +45,31 @@ class SqliteColumnType<T : Any, S : Any> internal constructor(
  * supplies their conversion contract.
  */
 object SqliteTypes {
+    /** Value associated with integer. */
     val integer: SqliteColumnType<Long, Long> = scalar("SQLite INTEGER", LongColumnType, "INTEGER")
+
+    /** Value associated with real. */
     val real: SqliteColumnType<Double, Double> = scalar("SQLite REAL", DoubleColumnType, "REAL")
+
+    /** Value associated with text. */
     val text: SqliteColumnType<String, String> = scalar("SQLite TEXT", StringColumnType, "TEXT")
+
+    /**
+     * Stores the complete [ULong] range as a 20-digit, zero-padded decimal `TEXT` value.
+     *
+     * Fixed-width decimal strings retain numeric ordering when compared with values using this mapping.
+     * SQLite arithmetic on these values does not preserve the full `ULong` precision.
+     */
+    val textUlong: SqliteColumnType<ULong, String> = mapped(
+        declaration = SqliteDeclaredType.TEXT,
+        storageType = StringColumnType,
+        mapping = columnMapping(
+            fromStorage = ::decodeTextUlong,
+            toStorage = ::encodeTextUlong,
+        ),
+    )
+
+    /** Value associated with blob. */
     val blob: SqliteColumnType<ByteArray, ByteArray> = scalar("SQLite BLOB", ByteArrayColumnType, "BLOB")
 
     /**
@@ -139,10 +163,26 @@ object SqliteTypes {
     }
 }
 
+private fun encodeTextUlong(value: ULong): String = value.toString().padStart(ULONG_DECIMAL_WIDTH, '0')
+
+private fun decodeTextUlong(value: String): ULong {
+    require(value.length == ULONG_DECIMAL_WIDTH && value.all { it in '0'..'9' }) {
+        "SQLite ULong TEXT must contain exactly 20 decimal digits"
+    }
+    return value.toULong()
+}
+
 /** The SQLite declared storage classes that have one matching Kagiroi scalar codec. */
 enum class SqliteDeclaredType(internal val sqlName: String) {
+    /** Value associated with integer. */
     INTEGER("INTEGER"),
+
+    /** Value associated with real. */
     REAL("REAL"),
+
+    /** Value associated with text. */
     TEXT("TEXT"),
+
+    /** Value associated with blob. */
     BLOB("BLOB"),
 }

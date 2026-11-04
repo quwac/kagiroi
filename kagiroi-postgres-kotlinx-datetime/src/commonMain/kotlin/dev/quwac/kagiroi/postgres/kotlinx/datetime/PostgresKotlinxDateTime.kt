@@ -26,6 +26,7 @@ import kotlinx.datetime.UtcOffset
  * TIME ZONE(p)`. `TIME WITH TIME ZONE`, `TIMESTAMP WITH TIME ZONE`, and `INTERVAL`
  * remain intentionally absent because they need an offset, instant, or calendar-period
  * policy beyond one local `kotlinx-datetime` value.
+ * @property localDate Value associated with local date.
  */
 object PostgresKotlinxDateTimeMappings {
     val localDate: ColumnMapping<LocalDate, String> = columnMapping(
@@ -33,6 +34,7 @@ object PostgresKotlinxDateTimeMappings {
         toStorage = LocalDate::toString,
     )
 
+    /** Provides the local time result. */
     fun localTime(fractionalSecondsPrecision: Int): ColumnMapping<LocalTime, String> = columnMapping(
         fromStorage = LocalTime::parse,
         toStorage = { value ->
@@ -40,6 +42,7 @@ object PostgresKotlinxDateTimeMappings {
         },
     )
 
+    /** Provides the local date time result. */
     fun localDateTime(fractionalSecondsPrecision: Int): ColumnMapping<LocalDateTime, String> = columnMapping(
         fromStorage = { LocalDateTime.parse(it.replaceFirst(' ', 'T')) },
         toStorage = { value ->

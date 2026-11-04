@@ -49,28 +49,49 @@ class MySqlColumnType<T : Any, S : Any> internal constructor(
 /** MySQL 8.4 physical column type factories. */
 @Suppress("TooManyFunctions") // Mirrors the public MySQL data type catalog.
 object MySqlTypes {
+    /** Value associated with boolean. */
     val boolean: MySqlColumnType<Boolean, Boolean> = scalar("MySQL BOOLEAN", BooleanColumnType, "BOOLEAN")
+
+    /** Value associated with tiny int. */
     val tinyInt: MySqlColumnType<Byte, Byte> = scalar("MySQL TINYINT", ByteColumnType, "TINYINT")
+
+    /** Value associated with tiny int unsigned. */
     val tinyIntUnsigned: MySqlColumnType<UByte, UByte> = scalar(
         "MySQL TINYINT UNSIGNED",
         UByteColumnType,
         "TINYINT UNSIGNED",
     )
+
+    /** Value associated with small int. */
     val smallInt: MySqlColumnType<Short, Short> = scalar("MySQL SMALLINT", ShortColumnType, "SMALLINT")
+
+    /** Value associated with small int unsigned. */
     val smallIntUnsigned: MySqlColumnType<UShort, UShort> = scalar(
         "MySQL SMALLINT UNSIGNED",
         UShortColumnType,
         "SMALLINT UNSIGNED",
     )
+
+    /** Value associated with medium int. */
     val mediumInt: MySqlColumnType<Int, Int> = scalar("MySQL MEDIUMINT", IntColumnType, "MEDIUMINT")
+
+    /** Value associated with medium int unsigned. */
     val mediumIntUnsigned: MySqlColumnType<UInt, UInt> = scalar(
         "MySQL MEDIUMINT UNSIGNED",
         UIntColumnType,
         "MEDIUMINT UNSIGNED",
     )
+
+    /** Value associated with integer. */
     val integer: MySqlColumnType<Int, Int> = scalar("MySQL INT", IntColumnType, "INT")
+
+    /** Value associated with integer unsigned. */
     val integerUnsigned: MySqlColumnType<UInt, UInt> = scalar("MySQL INT UNSIGNED", UIntColumnType, "INT UNSIGNED")
+
+    /** Value associated with big int. */
     val bigInt: MySqlColumnType<Long, Long> = scalar("MySQL BIGINT", LongColumnType, "BIGINT")
+
+    /** Value associated with big int unsigned. */
     val bigIntUnsigned: MySqlColumnType<ULong, ULong> = scalar(
         "MySQL BIGINT UNSIGNED",
         ULongColumnType,
@@ -79,17 +100,38 @@ object MySqlTypes {
 
     /** MySQL `SERIAL` is its own BIGINT UNSIGNED AUTO_INCREMENT UNIQUE shorthand. */
     val serial: MySqlColumnType<ULong, ULong> = scalar("MySQL SERIAL", ULongColumnType, "SERIAL")
+
+    /** Value associated with float. */
     val float: MySqlColumnType<Float, Float> = scalar("MySQL FLOAT", FloatColumnType, "FLOAT")
+
+    /** Value associated with double. */
     val double: MySqlColumnType<Double, Double> = scalar("MySQL DOUBLE", DoubleColumnType, "DOUBLE")
+
+    /** Value associated with year. */
     val year: MySqlColumnType<Int, Int> = scalar("MySQL YEAR", IntColumnType, "YEAR")
 
+    /** Value associated with tiny text. */
     val tinyText: MySqlColumnType<String, String> = text("TINYTEXT")
+
+    /** Value associated with text. */
     val text: MySqlColumnType<String, String> = text("TEXT")
+
+    /** Value associated with medium text. */
     val mediumText: MySqlColumnType<String, String> = text("MEDIUMTEXT")
+
+    /** Value associated with long text. */
     val longText: MySqlColumnType<String, String> = text("LONGTEXT")
+
+    /** Value associated with tiny blob. */
     val tinyBlob: MySqlColumnType<ByteArray, ByteArray> = bytes("TINYBLOB")
+
+    /** Value associated with blob. */
     val blob: MySqlColumnType<ByteArray, ByteArray> = bytes("BLOB")
+
+    /** Value associated with medium blob. */
     val mediumBlob: MySqlColumnType<ByteArray, ByteArray> = bytes("MEDIUMBLOB")
+
+    /** Value associated with long blob. */
     val longBlob: MySqlColumnType<ByteArray, ByteArray> = bytes("LONGBLOB")
 
     /** A UUID stored in a portable MySQL-compatible `CHAR(36)` column. */
@@ -116,6 +158,7 @@ object MySqlTypes {
         sqlDeclaration = "BINARY(16)",
     )
 
+    /** Value associated with json. */
     val json: MySqlColumnType<String, String> = MySqlColumnType(
         name = "MySQL JSON",
         storageType = StringColumnType,
@@ -130,16 +173,32 @@ object MySqlTypes {
      * rather than materializing JavaScript geometry objects.
      */
     val geometry: MySqlColumnType<ByteArray, ByteArray> = bytes("GEOMETRY")
+
+    /** Value associated with point. */
     val point: MySqlColumnType<ByteArray, ByteArray> = bytes("POINT")
+
+    /** Value associated with line string. */
     val lineString: MySqlColumnType<ByteArray, ByteArray> = bytes("LINESTRING")
+
+    /** Value associated with polygon. */
     val polygon: MySqlColumnType<ByteArray, ByteArray> = bytes("POLYGON")
+
+    /** Value associated with multi point. */
     val multiPoint: MySqlColumnType<ByteArray, ByteArray> = bytes("MULTIPOINT")
+
+    /** Value associated with multi line string. */
     val multiLineString: MySqlColumnType<ByteArray, ByteArray> = bytes("MULTILINESTRING")
+
+    /** Value associated with multi polygon. */
     val multiPolygon: MySqlColumnType<ByteArray, ByteArray> = bytes("MULTIPOLYGON")
+
+    /** Value associated with geometry collection. */
     val geometryCollection: MySqlColumnType<ByteArray, ByteArray> = bytes("GEOMETRYCOLLECTION")
 
+    /** Provides the bit result. */
     fun bit(length: Int): MySqlColumnType<ByteArray, ByteArray> = bytes("BIT(${positive(length, "length")})")
 
+    /** Provides the decimal result. */
     fun decimal(precision: Int, scale: Int): MySqlColumnType<String, String> {
         require(precision in 1..MYSQL_MAX_DECIMAL_PRECISION) {
             "MySQL DECIMAL precision must be between 1 and $MYSQL_MAX_DECIMAL_PRECISION: $precision"
@@ -202,12 +261,16 @@ object MySqlTypes {
     fun timestamp(fractionalSecondsPrecision: Int = 0): MySqlColumnType<String, String> =
         text("TIMESTAMP${fractionalSeconds(fractionalSecondsPrecision)}")
 
+    /** Provides the char result. */
     fun char(length: Int): MySqlColumnType<String, String> = text("CHAR(${positive(length, "length")})")
 
+    /** Provides the varchar result. */
     fun varchar(maxLength: Int): MySqlColumnType<String, String> = text("VARCHAR(${positive(maxLength, "maxLength")})")
 
+    /** Provides the binary result. */
     fun binary(length: Int): MySqlColumnType<ByteArray, ByteArray> = bytes("BINARY(${positive(length, "length")})")
 
+    /** Provides the varbinary result. */
     fun varbinary(maxLength: Int): MySqlColumnType<ByteArray, ByteArray> =
         bytes("VARBINARY(${positive(maxLength, "maxLength")})")
 
@@ -221,6 +284,7 @@ object MySqlTypes {
     fun enum(first: String, vararg remaining: String): MySqlColumnType<String, String> =
         enum(nonEmptyListOf(first, *remaining))
 
+    /** Provides the enum result. */
     fun enum(labels: NonEmptyList<String>): MySqlColumnType<String, String> =
         text("ENUM(${labels.renderMySqlLabels("ENUM")})")
 
@@ -228,6 +292,7 @@ object MySqlTypes {
     fun set(first: String, vararg remaining: String): MySqlColumnType<String, String> =
         set(nonEmptyListOf(first, *remaining))
 
+    /** Provides the set result. */
     fun set(labels: NonEmptyList<String>): MySqlColumnType<String, String> =
         text("SET(${labels.renderMySqlLabels("SET")})")
 

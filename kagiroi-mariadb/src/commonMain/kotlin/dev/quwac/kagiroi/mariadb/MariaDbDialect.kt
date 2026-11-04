@@ -316,28 +316,72 @@ private fun MariaDbTypeRegistry.renderRecursiveCteAnchorProjection(
     return "CAST($reference AS ${castTarget(expression).let(::castTargetName)})"
 }
 
-/** MariaDB physical column types used by the built-in Kagiroi mappings. */
+/** MariaDB physical column types used by the built-in Kagiroi mappings.
+ *
+ * @property sqlName SQL type name used in DDL.
+ */
 enum class MariaDbType(val sqlName: String) {
+    /** Value associated with boolean. */
     BOOLEAN("BOOLEAN"),
+
+    /** Value associated with tinyint. */
     TINYINT("TINYINT"),
+
+    /** Value associated with tinyint unsigned. */
     TINYINT_UNSIGNED("TINYINT UNSIGNED"),
+
+    /** Value associated with smallint. */
     SMALLINT("SMALLINT"),
+
+    /** Value associated with smallint unsigned. */
     SMALLINT_UNSIGNED("SMALLINT UNSIGNED"),
+
+    /** Value associated with integer. */
     INTEGER("INT"),
+
+    /** Value associated with integer unsigned. */
     INTEGER_UNSIGNED("INT UNSIGNED"),
+
+    /** Value associated with float. */
     FLOAT("FLOAT"),
+
+    /** Value associated with double. */
     DOUBLE("DOUBLE"),
+
+    /** Value associated with timestamp. */
     TIMESTAMP("TIMESTAMP(6)"),
+
+    /** Value associated with date. */
     DATE("DATE"),
+
+    /** Value associated with time. */
     TIME("TIME(6)"),
+
+    /** Value associated with datetime. */
     DATETIME("DATETIME(6)"),
+
+    /** Value associated with bigint. */
     BIGINT("BIGINT"),
+
+    /** Value associated with bigint unsigned. */
     BIGINT_UNSIGNED("BIGINT UNSIGNED"),
+
+    /** Value associated with text. */
     TEXT("TEXT"),
+
+    /** Value associated with decimal. */
     DECIMAL("DECIMAL"),
+
+    /** Value associated with blob. */
     BLOB("BLOB"),
+
+    /** Value associated with uuid. */
     UUID("UUID"),
+
+    /** Value associated with char uuid. */
     CHAR_UUID("CHAR(36)"),
+
+    /** Value associated with binary uuid. */
     BINARY_UUID("BINARY(16)"),
 }
 
@@ -353,6 +397,7 @@ class MariaDbTypeRegistry(extensions: Iterable<MySqlExtension> = emptyList()) {
         }
     }
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): MariaDbType? = builtInType(type)
         ?: extensionMappings.firstOrNull { it.type === type }?.mySqlType?.toMariaDbCompatibleType()
         ?: (type as? MappedColumnType<*, *>)?.underlyingType?.let(::typeOf)

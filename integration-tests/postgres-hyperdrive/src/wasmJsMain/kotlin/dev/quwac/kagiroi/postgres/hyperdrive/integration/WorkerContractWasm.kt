@@ -17,6 +17,7 @@ import kotlin.js.Promise
 import kotlin.js.toJsString
 import kotlin.js.unsafeCast
 
+/** Runs the run hyperdrive postgres contract result. */
 @JsExport
 fun runHyperdrivePostgresContract(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
@@ -38,6 +39,7 @@ fun runHyperdrivePostgresContract(binding: JsAny): Promise<JsString> = Promise {
     })
 }
 
+/** Provides the main result. */
 fun main() = Unit
 
 @Suppress("UnusedParameter")

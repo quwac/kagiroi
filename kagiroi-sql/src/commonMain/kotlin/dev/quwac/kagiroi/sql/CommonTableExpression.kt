@@ -5,6 +5,8 @@ package dev.quwac.kagiroi.sql
  *
  * Its name is always rendered as a quoted identifier. Keep names in application-owned source
  * code; this API does not make externally supplied identifiers safe to use as application input.
+ *
+ * @property name quoted relation name used by this CTE.
  */
 open class CommonTableExpression internal constructor(val name: String, query: QueryExpression<*, *>) :
     QueryResultRelation(query) {
@@ -82,6 +84,7 @@ fun <T, P : SelectProjectionShape> recursiveCte(
 
 /** A query value to which an ordered WITH clause can be attached. */
 interface WithCteClause<Q> {
+    /** Returns this query with the ordered CTE definitions attached. */
     fun withCtes(vararg definitions: CommonTableExpression): Q
 }
 

@@ -167,6 +167,7 @@ object SqlServerDialect : SqlDdlDialect, SqlMergeDialect, SqlDmlOutputDialect, S
         emptyList(),
     )
 
+    /** Provides the configured result. */
     fun configured(extensions: Iterable<SqlServerExtension>): SqlDdlDialect {
         val installed = extensions.toList()
         return if (installed.isEmpty()) this else ConfiguredSqlServerDialect(installed)

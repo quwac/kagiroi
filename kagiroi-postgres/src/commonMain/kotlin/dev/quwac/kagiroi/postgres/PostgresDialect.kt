@@ -107,6 +107,7 @@ object PostgresDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDi
         emptyList(),
     )
 
+    /** Provides the configured result. */
     fun configured(extensions: Iterable<PostgresExtension>): SqlDdlDialect {
         val installed = extensions.toList()
         return if (installed.isEmpty()) this else ConfiguredPostgresDialect(installed)

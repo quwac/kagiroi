@@ -9,7 +9,9 @@ import kotlinx.coroutines.test.runTest
 import kotlin.js.JsString
 import kotlin.test.Test
 
+/** Represents node oracle integration test. */
 class NodeOracleIntegrationTest {
+    /** Provides the oracle23 contract result. */
     @Test
     fun oracle23Contract() = runTest {
         val settings = integrationSettings() ?: return@runTest

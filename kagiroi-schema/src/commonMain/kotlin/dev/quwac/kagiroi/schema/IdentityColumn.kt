@@ -6,6 +6,9 @@ package dev.quwac.kagiroi.schema
  * A `null` option means that the database default remains part of the schema contract; it is not
  * the same as explicitly requesting a numeric default. Dialects own the physical syntax and
  * reject an option their native identity facility cannot express.
+ *
+ * @property startWith explicitly requested first identity value, or `null` to use the database default.
+ * @property incrementBy explicitly requested increment, or `null` to use the database default.
  */
 data class Identity(val startWith: Long? = null, val incrementBy: Long? = null) {
     init {

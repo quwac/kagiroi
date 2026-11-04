@@ -8,6 +8,7 @@ package dev.quwac.kagiroi.schema
  * tree.
  */
 interface RelationSource {
+    /** SQL alias, or `null` when the source name is used directly. */
     val alias: String?
 
     /** A stable diagnostic name when this source does not have an explicit SQL alias. */
@@ -48,7 +49,11 @@ fun Table.alias(name: String): TableAlias {
     return TableAlias(this, name)
 }
 
-/** A column reference qualified by one [RelationSource]. */
+/** A column reference qualified by one [RelationSource].
+ *
+ * @property column referenced schema column.
+ * @property source relation source that qualifies the column in SQL.
+ */
 class RelationColumn<T> internal constructor(val column: Column<T>, val source: RelationSource) :
     SqlExpression<T>,
     NamedRelationColumn<T & Any> {
@@ -64,7 +69,11 @@ class RelationColumn<T> internal constructor(val column: Column<T>, val source: 
     override fun toString(): String = "$source.${column.name}"
 }
 
-/** A typed column reference whose schema value may be replaced with SQL NULL by an outer join. */
+/** A typed column reference whose schema value may be replaced with SQL NULL by an outer join.
+ *
+ * @property column referenced schema column.
+ * @property source relation source that qualifies the column in SQL.
+ */
 class NullableRelationColumn<T> internal constructor(val column: Column<T>, val source: RelationSource) :
     SqlExpression<T?> {
     override val referencedColumns: List<Column<*>> = listOf(column)

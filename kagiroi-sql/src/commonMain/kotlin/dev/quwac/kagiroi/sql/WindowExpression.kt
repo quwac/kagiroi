@@ -11,6 +11,10 @@ import dev.quwac.kagiroi.schema.WindowedSqlExpression
  * A complete typed window specification shared by inline `OVER (...)` and query-scoped named
  * `WINDOW` definitions. Frame exclusions belong to [WindowFrame], because they change frame
  * membership rather than filtering the query result.
+ *
+ * @property partitionBy expressions that divide rows into independent partitions.
+ * @property orderBy ordering expressions applied within each partition.
+ * @property frame optional window frame.
  */
 data class WindowSpecification(
     val partitionBy: List<SqlExpression<*>>,
@@ -18,64 +22,108 @@ data class WindowSpecification(
     val frame: WindowFrame?,
 )
 
-/** The portable window-frame type. `ROWS` counts rows, `RANGE` ordered values, and `GROUPS` peers. */
+/** The portable window-frame type. `ROWS` counts rows, `RANGE` ordered values, and `GROUPS` peers.
+ *
+ * @property sql SQL frame-unit keyword.
+ */
 enum class WindowFrameUnit(val sql: String) {
+    /** Counts physical rows in the window ordering. */
     Rows("ROWS"),
+
+    /** Measures the frame over the ordered values. */
     Range("RANGE"),
+
+    /** Counts peer groups with equal ordering values. */
     Groups("GROUPS"),
 }
 
-/** One validated window frame, including its optional native exclusion semantics. */
+/** One validated window frame, including its optional native exclusion semantics.
+ *
+ * @property unit ROWS, RANGE, or GROUPS frame semantics.
+ * @property extent one boundary or an explicit start/end pair.
+ * @property exclusion optional native frame exclusion.
+ */
 data class WindowFrame(
     val unit: WindowFrameUnit,
     val extent: WindowFrameExtent,
     val exclusion: WindowFrameExclusion? = null,
 )
 
-/** Native SQL frame exclusions; no peer membership is calculated by Kagiroi. */
+/** Native SQL frame exclusions; no peer membership is calculated by Kagiroi.
+ *
+ * @property sql SQL exclusion clause.
+ */
 enum class WindowFrameExclusion(val sql: String) {
+    /** Excludes the current row from the frame. */
     CurrentRow("EXCLUDE CURRENT ROW"),
+
+    /** Excludes the current row's peer group. */
     Group("EXCLUDE GROUP"),
+
+    /** Excludes peers except for the current row. */
     Ties("EXCLUDE TIES"),
+
+    /** Retains all rows in the frame. */
     NoOthers("EXCLUDE NO OTHERS"),
 }
 
 /** A frame can have one start boundary or explicit start and end boundaries. */
 sealed interface WindowFrameExtent
 
+/** A frame extent with one start boundary and an implicit end at CURRENT ROW.
+ *
+ * @property boundary start boundary.
+ */
 class WindowFrameStart internal constructor(val boundary: WindowFrameBoundary) : WindowFrameExtent
 
+/** A frame extent with explicit start and end boundaries.
+ *
+ * @property start first boundary.
+ * @property end final boundary.
+ */
 class WindowFrameBetween internal constructor(val start: WindowFrameBoundary, val end: WindowFrameBoundary) :
     WindowFrameExtent
 
 /** A type-safe frame boundary; offsets are validated integer literals, never SQL fragments. */
 sealed interface WindowFrameBoundary {
+    /** SQL boundary syntax. */
     val sql: String
 
     /** Position relative to the current row, used to reject impossible BETWEEN ranges. */
     val position: Int
 }
 
+/** Boundary at the first row of the partition. */
 data object UnboundedPreceding : WindowFrameBoundary {
     override val sql: String = "UNBOUNDED PRECEDING"
     override val position: Int = Int.MIN_VALUE
 }
 
+/** Boundary at the row currently being evaluated. */
 data object CurrentRow : WindowFrameBoundary {
     override val sql: String = "CURRENT ROW"
     override val position: Int = 0
 }
 
+/** Boundary at the last row of the partition. */
 data object UnboundedFollowing : WindowFrameBoundary {
     override val sql: String = "UNBOUNDED FOLLOWING"
     override val position: Int = Int.MAX_VALUE
 }
 
+/** Boundary a positive number of rows before the current row.
+ *
+ * @property offset positive row offset.
+ */
 class Preceding internal constructor(val offset: Int) : WindowFrameBoundary {
     override val sql: String = "$offset PRECEDING"
     override val position: Int = -offset
 }
 
+/** Boundary a positive number of rows after the current row.
+ *
+ * @property offset positive row offset.
+ */
 class Following internal constructor(val offset: Int) : WindowFrameBoundary {
     override val sql: String = "$offset FOLLOWING"
     override val position: Int = offset
@@ -184,12 +232,16 @@ class WindowSpecificationBuilder internal constructor() {
         selectedFrame = frame.copy(exclusion = exclusion)
     }
 
+    /** Excludes the current row from the selected frame. */
     fun excludeCurrentRow() = exclude(WindowFrameExclusion.CurrentRow)
 
+    /** Excludes the current row's peer group from the selected frame. */
     fun excludeGroup() = exclude(WindowFrameExclusion.Group)
 
+    /** Excludes peer rows other than the current row from the selected frame. */
     fun excludeTies() = exclude(WindowFrameExclusion.Ties)
 
+    /** Keeps all rows in the selected frame. */
     fun excludeNoOthers() = exclude(WindowFrameExclusion.NoOthers)
 
     private fun setFrame(frame: WindowFrame) {
@@ -229,9 +281,10 @@ private fun validatePortableRangeExtent(extent: WindowFrameExtent) {
 private fun WindowFrameBoundary.isPortableRangeBoundary(): Boolean =
     this is UnboundedPreceding || this is CurrentRow || this is UnboundedFollowing
 
-/**
- * A query-scoped, explicitly registered named window. It has no inheritance or extension model:
- * the complete [specification] is reused exactly by every `OVER name` reference.
+/** A complete query-scoped named window definition.
+ *
+ * @property name SQL window name.
+ * @property specification window partitioning, ordering, and frame.
  */
 class NamedWindow internal constructor(val name: String, val specification: WindowSpecification) {
     init {
@@ -251,7 +304,9 @@ internal fun WindowSpecification.expressions(): List<SqlExpression<*>> = partiti
  * itself window-capable, preventing a second `OVER` clause from being added accidentally.
  */
 class WindowExpression<T> internal constructor(
+    /** Function completed by this window specification. */
     val function: SqlFunctionExpression<T>,
+    /** Partitioning, ordering, and frame applied to the function. */
     val specification: WindowSpecification,
     /** Non-null only when SQL is rendered as `OVER named_window`. */
     val namedWindow: NamedWindow? = null,

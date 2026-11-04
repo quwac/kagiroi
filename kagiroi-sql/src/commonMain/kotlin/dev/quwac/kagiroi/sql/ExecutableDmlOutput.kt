@@ -10,22 +10,30 @@ class ExecutableDmlOutputQuery internal constructor(
     private val statement: RenderedSql,
     private val output: SqlDmlOutput,
 ) {
+    /** Streams the stream result. */
     fun stream(): Flow<SqlDmlOutputRow> = execution.query(statement, output.columns.map(SqlDmlOutputColumn<*>::column))
         .map { row -> SqlDmlOutputRow(output.columns, row::storageValueAt) }
 
+    /** Returns the all result. */
     suspend fun all(): List<SqlDmlOutputRow> = SqlQuery(stream()).all()
 
+    /** Returns the all result. */
     suspend fun <T> all(mapper: (SqlDmlOutputRow) -> T): List<T> = SqlQuery(stream()).all(mapper)
 
+    /** Returns the one result. */
     suspend fun one(): SqlDmlOutputRow = SqlQuery(stream()).one()
 
+    /** Returns the one result. */
     suspend fun <T> one(mapper: (SqlDmlOutputRow) -> T): T = SqlQuery(stream()).one(mapper)
 
+    /** Returns the one or null result. */
     suspend fun oneOrNull(): SqlDmlOutputRow? = SqlQuery(stream()).oneOrNull()
 
+    /** Returns the one or null result. */
     suspend fun <T> oneOrNull(mapper: (SqlDmlOutputRow) -> T): T? = SqlQuery(stream()).oneOrNull(mapper)
 }
 
+/** Provides the dml output result. */
 fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.dmlOutput(
     output: SqlDmlOutput,
     allowedImages: Set<SqlDmlOutputImage>,
@@ -34,6 +42,7 @@ fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.dmlOutput(
     return execution.executeDmlOutput(DmlOutputRenderer(execution.dialect).render(query, output), output)
 }
 
+/** Provides the dml output result. */
 fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.dmlOutput(
     output: SqlDmlOutput,
     allowedImages: Set<SqlDmlOutputImage>,
@@ -42,6 +51,7 @@ fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.dmlOutput(
     return execution.executeDmlOutput(DmlOutputRenderer(execution.dialect).render(query, output), output)
 }
 
+/** Provides the dml output result. */
 fun <S : DeleteQueryState.Renderable> ExecutableDeleteQuery<S>.dmlOutput(
     output: SqlDmlOutput,
     allowedImages: Set<SqlDmlOutputImage>,

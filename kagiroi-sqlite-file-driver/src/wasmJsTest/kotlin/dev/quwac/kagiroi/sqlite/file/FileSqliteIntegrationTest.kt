@@ -24,7 +24,9 @@ private external object NodePath : JsAny {
     fun join(vararg paths: String): String
 }
 
+/** Represents file sqlite integration test. */
 class FileSqliteIntegrationTest {
+    /** Provides the file backed driver contract result. */
     @Test
     fun fileBackedDriverContract() = runTest {
         val directory = NodeFileSystem.mkdtempSync(NodePath.join(NodeOperatingSystem.tmpdir(), "kagiroi-sqlite-"))

@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.Flow
 
 /** An execution-bound typed query expression. */
 interface ExecutableQueryExpression<T, P : SelectProjectionShape> {
+    /** Database or transaction used to execute this query. */
     val execution: SqlExecution
 
+    /** Immutable query AST associated with [execution]. */
     val expression: QueryExpression<T, P>
 }
 
@@ -26,6 +28,7 @@ class ExecutableSelectQuery<S : SelectQueryState, T, P : SelectProjectionShape> 
     override fun withCtes(vararg definitions: CommonTableExpression): ExecutableSelectQuery<S, T, P> =
         ExecutableSelectQuery(execution, query.with(*definitions))
 
+    /** Adds [table] as the base source of this SELECT. */
     fun from(table: Table): ExecutableSelectQuery<SelectQueryState.Start, T, P> =
         ExecutableSelectQuery(execution, query.from(table))
 
@@ -33,16 +36,22 @@ class ExecutableSelectQuery<S : SelectQueryState, T, P : SelectProjectionShape> 
     fun from(source: RelationSource): ExecutableSelectQuery<SelectQueryState.Start, T, P> =
         ExecutableSelectQuery(execution, query.from(source))
 
+    /** Streams every result row as it is received. */
     fun stream(): Flow<SqlRow> = result().stream()
 
+    /** Returns all result rows. */
     suspend fun all(): List<SqlRow> = result().all()
 
+    /** Returns the sole result row, failing when the query returns zero or multiple rows. */
     suspend fun one(): SqlRow = result().one()
 
+    /** Maps the sole result row, failing when the query returns zero or multiple rows. */
     suspend fun <T> one(mapper: (SqlRow) -> T): T = result().one(mapper)
 
+    /** Returns the sole result row, or `null` when there are no rows; fails for multiple rows. */
     suspend fun oneOrNull(): SqlRow? = result().oneOrNull()
 
+    /** Maps the sole result row, or returns `null` when there are no rows. */
     suspend fun <T> oneOrNull(mapper: (SqlRow) -> T): T? = result().oneOrNull(mapper)
 
     private fun result(): SqlQuery<SqlRow> = execution.query(query)
@@ -59,16 +68,22 @@ class ExecutableSetOperationQuery<T, P : SelectProjectionShape> internal constru
     override fun withCtes(vararg definitions: CommonTableExpression): ExecutableSetOperationQuery<T, P> =
         ExecutableSetOperationQuery(execution, query.with(*definitions))
 
+    /** Streams every result row as it is received. */
     fun stream(): Flow<SqlRow> = result().stream()
 
+    /** Returns all result rows. */
     suspend fun all(): List<SqlRow> = result().all()
 
+    /** Returns the sole result row, failing when the query returns zero or multiple rows. */
     suspend fun one(): SqlRow = result().one()
 
+    /** Maps the sole result row, failing when the query returns zero or multiple rows. */
     suspend fun <R> one(mapper: (SqlRow) -> R): R = result().one(mapper)
 
+    /** Returns the sole result row, or `null` when there are no rows; fails for multiple rows. */
     suspend fun oneOrNull(): SqlRow? = result().oneOrNull()
 
+    /** Maps the sole result row, or returns `null` when there are no rows. */
     suspend fun <R> oneOrNull(mapper: (SqlRow) -> R): R? = result().oneOrNull(mapper)
 
     private fun result(): SqlQuery<SqlRow> = execution.query(query)
@@ -132,11 +147,13 @@ fun <T, P : SelectProjectionShape> ExecutableSetOperationQuery<T, P>.offset(
 fun <T, P : SelectProjectionShape> ExecutableQueryExpression<T, P>.asCte(name: String): CommonTableExpression =
     expression.asCte(name)
 
+/** Starts an execution-bound SELECT with one typed projection. */
 fun <T> SqlExecution.select(
     expression: SqlExpression<T>,
 ): ExecutableSelectQuery<SelectQueryState.SourceLessStart, T, SingleProjection> =
     ExecutableSelectQuery(this, dev.quwac.kagiroi.sql.select(expression))
 
+/** Starts an execution-bound SELECT with multiple typed projections. */
 fun <T> SqlExecution.select(
     expression: SqlExpression<T>,
     additionalExpression: SqlExpression<*>,
@@ -164,20 +181,24 @@ fun <S : SelectQueryState, T, P : SelectProjectionShape> ExecutableSelectQuery<S
     vararg additionalDefinitions: NamedWindow,
 ): ExecutableSelectQuery<S, T, P> = ExecutableSelectQuery(execution, query.window(definition, *additionalDefinitions))
 
+/** Filters rows by [predicate] while retaining the execution target. */
 fun <S : SelectQueryState.WhereAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.where(
     predicate: SqlPredicate,
 ): ExecutableSelectQuery<SelectQueryState.AfterWhere, T, P> = ExecutableSelectQuery(execution, query.where(predicate))
 
+/** Groups rows by the specified typed grouping elements. */
 fun <S : SelectQueryState.GroupByAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.groupBy(
     element: GroupByElement,
     vararg additionalElements: GroupByElement,
 ): ExecutableSelectQuery<SelectQueryState.AfterGroupBy, T, P> =
     ExecutableSelectQuery(execution, query.groupBy(element, *additionalElements))
 
+/** Filters grouped rows by [predicate]. */
 fun <S : SelectQueryState.HavingAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.having(
     predicate: SqlPredicate,
 ): ExecutableSelectQuery<SelectQueryState.AfterHaving, T, P> = ExecutableSelectQuery(execution, query.having(predicate))
 
+/** Adds an INNER JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.innerJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -191,6 +212,7 @@ fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.innerJoinUs
 ): ExecutableSelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     ExecutableSelectQuery(execution, query.innerJoinUsing(source, using))
 
+/** Adds a LEFT JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.leftJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -204,6 +226,7 @@ fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.leftJoinUsi
 ): ExecutableSelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     ExecutableSelectQuery(execution, query.leftJoinUsing(source, using))
 
+/** Adds a RIGHT JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.rightJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -217,6 +240,7 @@ fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.rightJoinUs
 ): ExecutableSelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     ExecutableSelectQuery(execution, query.rightJoinUsing(source, using))
 
+/** Adds a FULL OUTER JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.fullOuterJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -248,16 +272,19 @@ fun <S, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.leftJoinLat
 ): ExecutableSelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     ExecutableSelectQuery(execution, query.leftJoinLateral(relation))
 
+/** Orders the result rows using the specified expressions. */
 fun <S : SelectQueryState.OrderByAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.orderBy(
     order: Order<*>,
     vararg additionalOrders: Order<*>,
 ): ExecutableSelectQuery<SelectQueryState.AfterOrderBy, T, P> =
     ExecutableSelectQuery(execution, query.orderBy(order, *additionalOrders))
 
+/** Limits the number of result rows. */
 fun <S : SelectQueryState.LimitAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.limit(
     limit: Int,
 ): ExecutableSelectQuery<SelectQueryState.AfterLimit, T, P> = ExecutableSelectQuery(execution, query.limit(limit))
 
+/** Skips the specified number of result rows. */
 fun <S : SelectQueryState.OffsetAllowed, T, P : SelectProjectionShape> ExecutableSelectQuery<S, T, P>.offset(
     offset: Int,
 ): ExecutableSelectQuery<SelectQueryState.AfterOffset, T, P> = ExecutableSelectQuery(execution, query.offset(offset))

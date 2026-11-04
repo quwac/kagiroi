@@ -28,8 +28,8 @@
   </a>
 </p>
 
-Kagiroi (pronounced "kah-gee-roh-ee") is a Kotlin Multiplatform database toolkit
-for Kotlin/JS and Kotlin/Wasm.
+Kagiroi (pronounced "kah-gee-roh-ee") is a database toolkit for Kotlin/JS and
+Kotlin/Wasm.
 It provides typed schema definitions, parameterized SQL, typed row access, and
 dialect-specific SQL rendering.
 

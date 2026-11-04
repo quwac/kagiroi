@@ -5,9 +5,15 @@ import dev.quwac.kagiroi.schema.Table
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-/** A dialect-specific DML RETURNING INTO projection with generated private output-bind names. */
+/** A dialect-specific DML RETURNING INTO projection with generated private output-bind names.
+ *
+ * @property columns columns to return from the write statement.
+ * @property parameterNames generated bind names, in the same order as [columns].
+ */
 class SqlDmlReturningInto(columns: NonEmptyList<Column<*>>) {
     val columns: NonEmptyList<Column<*>> = columns
+
+    /** Value associated with parameter names. */
     val parameterNames: List<String> = columns.indices.map { index -> "kagiroi_ret_${index + 1}" }
 
     init {
@@ -17,11 +23,16 @@ class SqlDmlReturningInto(columns: NonEmptyList<Column<*>>) {
     }
 }
 
-/** Buffered DML RETURNING INTO values decoded by the dialect driver's private execution bridge. */
+/** Buffered DML RETURNING INTO values decoded by the dialect driver's execution bridge.
+ *
+ * @property affectedRows number of rows changed by the statement.
+ * @property rows returned rows in the order of the requested projection.
+ */
 class SqlDmlReturningIntoResult(val affectedRows: Long, val rows: List<SqlRow>)
 
 /** Optional driver execution surface for dialect-specific DML RETURNING INTO out binds. */
 interface SqlDmlReturningIntoExecution : SqlExecution {
+    /** Executes the execute dml returning into result. */
     suspend fun executeDmlReturningInto(
         statement: RenderedSql,
         returning: SqlDmlReturningInto,
@@ -34,25 +45,33 @@ class ExecutableDmlReturningIntoQuery internal constructor(
     private val statement: RenderedSql,
     private val returning: SqlDmlReturningInto,
 ) {
+    /** Streams the stream result. */
     fun stream(): Flow<SqlRow> = flow {
         execution.executeDmlReturningInto(statement, returning).rows.forEach { row -> emit(row) }
     }
 
+    /** Returns the all result. */
     suspend fun all(): List<SqlRow> = result().all()
 
+    /** Returns the all result. */
     suspend fun <T> all(mapper: (SqlRow) -> T): List<T> = result().all(mapper)
 
+    /** Returns the one result. */
     suspend fun one(): SqlRow = result().one()
 
+    /** Returns the one result. */
     suspend fun <T> one(mapper: (SqlRow) -> T): T = result().one(mapper)
 
+    /** Returns the one or null result. */
     suspend fun oneOrNull(): SqlRow? = result().oneOrNull()
 
+    /** Returns the one or null result. */
     suspend fun <T> oneOrNull(mapper: (SqlRow) -> T): T? = result().oneOrNull(mapper)
 
     private fun result(): SqlQuery<SqlRow> = SqlQuery(stream())
 }
 
+/** Provides the dml returning into result. */
 fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.dmlReturningInto(
     returning: SqlDmlReturningInto,
 ): ExecutableDmlReturningIntoQuery {
@@ -63,6 +82,7 @@ fun <S : InsertQueryState.Renderable> ExecutableInsertQuery<S>.dmlReturningInto(
     )
 }
 
+/** Provides the dml returning into result. */
 fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.dmlReturningInto(
     returning: SqlDmlReturningInto,
 ): ExecutableDmlReturningIntoQuery {
@@ -73,6 +93,7 @@ fun <S : UpdateQueryState.Renderable> ExecutableUpdateQuery<S>.dmlReturningInto(
     )
 }
 
+/** Provides the dml returning into result. */
 fun <S : DeleteQueryState.Renderable> ExecutableDeleteQuery<S>.dmlReturningInto(
     returning: SqlDmlReturningInto,
 ): ExecutableDmlReturningIntoQuery {

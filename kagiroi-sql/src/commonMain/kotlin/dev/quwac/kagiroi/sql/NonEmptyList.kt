@@ -1,6 +1,9 @@
 package dev.quwac.kagiroi.sql
 
-/** An immutable [List] whose construction requires at least one value. */
+/** An immutable [List] whose construction requires at least one value.
+ *
+ * @property first first element, which guarantees that the list is non-empty.
+ */
 class NonEmptyList<out T> private constructor(val first: T, remaining: List<T>) :
     List<T> by (listOf(first) + remaining) {
     override fun equals(other: Any?): Boolean = other is List<*> && toList() == other
@@ -9,8 +12,10 @@ class NonEmptyList<out T> private constructor(val first: T, remaining: List<T>) 
 
     override fun toString(): String = toList().toString()
 
+    /** Represents companion. */
     companion object {
-        /** Creates a non-empty list from [first] and optional [remaining] values. */
+        /** Creates a non-empty list from [first] and optional [remaining] values.
+         */
         fun <T> of(first: T, vararg remaining: T): NonEmptyList<T> = NonEmptyList(first, remaining.toList())
 
         /** Returns null when [values] has no elements. */
