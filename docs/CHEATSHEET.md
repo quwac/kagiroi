@@ -36,15 +36,17 @@ object Users : Table(
 | `uuid`, `instant`, `duration` | `Uuid`, `Instant`, `Duration` |
 | `column(name, type)` | A `ColumnType<T>` supplied by an extension module |
 
-For the full `ULong` range in SQLite, use `SqliteTypes.textUlong` explicitly. It stores
+For the full `ULong` range in SQLite, use `textUlong(name)` explicitly. It stores
 20-digit, zero-padded decimal text, so comparisons and sorting between columns using this
 mapping follow numeric order. SQLite arithmetic on these values does not preserve full
 `ULong` precision.
 
 ```kotlin
+import dev.quwac.kagiroi.sqlite.textUlong
+
 // SQL: "sequence_value" TEXT NOT NULL
 object Values : Table("values") {
-    val sequenceValue = column("sequence_value", SqliteTypes.textUlong)
+    val sequenceValue = textUlong("sequence_value")
 }
 ```
 

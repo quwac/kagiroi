@@ -75,7 +75,7 @@ belong in a dialect extension or parameterized raw DDL.
 | `SqliteTypes.integer` | `INTEGER` | `Long` |
 | `SqliteTypes.real` | `REAL` | `Double` |
 | `SqliteTypes.text` | `TEXT` | `String` |
-| `SqliteTypes.textUlong` | `TEXT` | `ULong` encoded as 20-digit zero-padded decimal text |
+| `Table.textUlong(name)` / `SqliteTypes.textUlong` | `TEXT` | `ULong` encoded as 20-digit zero-padded decimal text |
 | `SqliteTypes.blob` | `BLOB` | `ByteArray` |
 
 `mapped(...)` adds a domain mapping. `named(...)` and `namedText(...)` quote a caller-selected
