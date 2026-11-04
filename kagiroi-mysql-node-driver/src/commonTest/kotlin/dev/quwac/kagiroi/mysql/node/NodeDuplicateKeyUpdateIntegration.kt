@@ -13,7 +13,9 @@ import dev.quwac.kagiroi.sql.select
 import dev.quwac.kagiroi.sql.values
 import kotlin.test.assertEquals
 import dev.quwac.kagiroi.mariadb.onDuplicateKeyUpdate as mariaDbDuplicateKeyUpdate
+import dev.quwac.kagiroi.mariadb.replaceInto as mariaDbReplaceInto
 import dev.quwac.kagiroi.mysql.onDuplicateKeyUpdate as mySqlDuplicateKeyUpdate
+import dev.quwac.kagiroi.mysql.replaceInto as mySqlReplaceInto
 
 /** Real mysql2-driver contract; each server keeps its own native proposed-row syntax. */
 @Suppress("LongMethod")
@@ -94,6 +96,15 @@ internal suspend fun verifyMySqlDuplicateKeyUpdate(database: NodeMySqlDatabase) 
                 set(MySqlDuplicateRows.name, inserted(MySqlDuplicateRows.name))
             }.execute().affectedRows,
         )
+        database.mySqlReplaceInto(MySqlDuplicateRows).values {
+            set(MySqlDuplicateRows.id, 10)
+            set(MySqlDuplicateRows.email, "ada@example.test")
+            set(MySqlDuplicateRows.name, "Replacement")
+            set(MySqlDuplicateRows.count, 8)
+        }.execute()
+        val replacement = database.select(MySqlDuplicateRows.id, MySqlDuplicateRows.name)
+            .from(MySqlDuplicateRows).all().single { it[MySqlDuplicateRows.name] == "Replacement" }
+        assertEquals(10, replacement[MySqlDuplicateRows.id])
     } finally {
         database.executeRaw("DROP TABLE IF EXISTS kagiroi_mysql_duplicate_source")
         database.executeRaw("DROP TABLE IF EXISTS kagiroi_mysql_duplicate_rows")
@@ -180,6 +191,15 @@ internal suspend fun verifyMariaDbDuplicateKeyUpdate(database: NodeMySqlDatabase
                 set(MariaDbDuplicateRows.name, inserted(MariaDbDuplicateRows.name))
             }.execute().affectedRows,
         )
+        database.mariaDbReplaceInto(MariaDbDuplicateRows).values {
+            set(MariaDbDuplicateRows.id, 10)
+            set(MariaDbDuplicateRows.email, "ada@example.test")
+            set(MariaDbDuplicateRows.name, "Replacement")
+            set(MariaDbDuplicateRows.count, 8)
+        }.execute()
+        val replacement = database.select(MariaDbDuplicateRows.id, MariaDbDuplicateRows.name)
+            .from(MariaDbDuplicateRows).all().single { it[MariaDbDuplicateRows.name] == "Replacement" }
+        assertEquals(10, replacement[MariaDbDuplicateRows.id])
     } finally {
         database.executeRaw("DROP TABLE IF EXISTS kagiroi_mariadb_duplicate_source")
         database.executeRaw("DROP TABLE IF EXISTS kagiroi_mariadb_duplicate_rows")

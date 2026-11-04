@@ -92,6 +92,14 @@ fun <S> ExecutableInsertQuery<S>.withTargetedConflict(
     ),
 )
 
+/** Appends an execution-bound SQLite conflict clause. */
+fun <S> ExecutableInsertQuery<S>.withSqliteConflict(
+    targetColumns: List<WritableColumn<*>>? = null,
+    targetPredicate: SqlPredicate? = null,
+    block: TargetedInsertConflictBuilder.() -> Unit,
+): ExecutableInsertQuery<S> where S : InsertQueryState.Renderable =
+    ExecutableInsertQuery(execution, query.withSqliteConflict(targetColumns, targetPredicate, block))
+
 /** Adds a dialect-specific duplicate-key update behavior while retaining this execution target. */
 fun <S> ExecutableInsertQuery<S>.withDuplicateKeyUpdate(
     block: InsertedConflictUpdateBuilder.() -> Unit,
@@ -138,3 +146,7 @@ fun <S : DeleteQueryState.WhereAllowed> ExecutableDeleteQuery<S>.where(
 
 suspend fun <S : DeleteQueryState.Renderable> ExecutableDeleteQuery<S>.execute(): ExecuteResult =
     execution.execute(query)
+
+/** Marks an execution-bound INSERT as a dialect-specific native REPLACE statement. */
+fun <S : InsertQueryState> ExecutableInsertQuery<S>.asNativeReplace(): ExecutableInsertQuery<S> =
+    ExecutableInsertQuery(execution, query.asNativeReplace())

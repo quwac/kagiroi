@@ -30,6 +30,8 @@ import dev.quwac.kagiroi.sql.SqlDialect
 import dev.quwac.kagiroi.sql.SqlDmlReturningInto
 import dev.quwac.kagiroi.sql.SqlDmlReturningIntoDialect
 import dev.quwac.kagiroi.sql.SqlGroupingCapability
+import dev.quwac.kagiroi.sql.SqlMergeDialect
+import dev.quwac.kagiroi.sql.SqlMergeKind
 import dev.quwac.kagiroi.sql.SqlSelectPagination
 import dev.quwac.kagiroi.sql.SqlSequenceDialect
 import dev.quwac.kagiroi.sql.SqlStatementKind
@@ -49,7 +51,9 @@ import dev.quwac.kagiroi.sql.renderUniqueConstraint
 import dev.quwac.kagiroi.sql.toNonEmptyListOrNull
 
 /** Oracle Database 23ai SQL syntax and physical type rules. */
-object OracleDialect : SqlDdlDialect, SqlDmlReturningIntoDialect, SqlSequenceDialect {
+object OracleDialect : SqlDdlDialect, SqlMergeDialect, SqlDmlReturningIntoDialect, SqlSequenceDialect {
+    override val mergeKind: SqlMergeKind = SqlMergeKind.ORACLE
+
     private val types = OracleTypeRegistry()
     private val renderer = OracleDdlRenderer(types)
 
@@ -191,8 +195,11 @@ object OracleDialect : SqlDdlDialect, SqlDmlReturningIntoDialect, SqlSequenceDia
 
 private class ConfiguredOracleDialect(extensions: List<OracleExtension>) :
     SqlDdlDialect,
+    SqlMergeDialect,
     SqlDmlReturningIntoDialect,
     SqlSequenceDialect {
+    override val mergeKind: SqlMergeKind = SqlMergeKind.ORACLE
+
     private val types = OracleTypeRegistry(extensions)
     private val renderer = OracleDdlRenderer(types)
 

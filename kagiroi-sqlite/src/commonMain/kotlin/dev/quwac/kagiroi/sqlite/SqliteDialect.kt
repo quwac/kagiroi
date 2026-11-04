@@ -38,6 +38,7 @@ import dev.quwac.kagiroi.sql.SqlDdlDialect
 import dev.quwac.kagiroi.sql.SqlDialect
 import dev.quwac.kagiroi.sql.SqlInsertConflictDialect
 import dev.quwac.kagiroi.sql.SqlProposedInsertReferenceStyle
+import dev.quwac.kagiroi.sql.SqlReplaceDialect
 import dev.quwac.kagiroi.sql.SqlReturningDialect
 import dev.quwac.kagiroi.sql.SqlTypeCodecRegistry
 import dev.quwac.kagiroi.sql.SqlWindowCapability
@@ -59,7 +60,7 @@ enum class SqliteStorageClass {
 
 /** SQLite syntax for the SQL query models supported by kagiroi-sql. */
 @Suppress("TooManyFunctions") // SQLite owns each dialect rendering variation in one public contract.
-object SqliteDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDialect {
+object SqliteDialect : SqlDdlDialect, SqlReplaceDialect, SqlInsertConflictDialect, SqlReturningDialect {
     private val ddlRenderer = SqliteDdlRenderer(SqliteTypeRegistry())
 
     override fun quoteIdentifier(identifier: String): String = "\"${identifier.replace("\"", "\"\"")}\""
@@ -131,7 +132,10 @@ object SqliteDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDial
 
     override fun requiresInsertSelectConflictDisambiguation(
         behavior: dev.quwac.kagiroi.sql.InsertConflictBehavior,
-    ): Boolean = behavior is dev.quwac.kagiroi.sql.TargetedInsertConflictBehavior
+    ): Boolean = (
+        behavior is dev.quwac.kagiroi.sql.TargetedInsertConflictBehavior ||
+            behavior is dev.quwac.kagiroi.sql.MultipleTargetedInsertConflictBehavior
+        )
 
     override fun renderInsertConflict(
         behavior: dev.quwac.kagiroi.sql.InsertConflictBehavior,
@@ -150,6 +154,7 @@ object SqliteDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDial
 @Suppress("TooManyFunctions") // Explicitly delegates every dialect capability while changing only the type registry.
 private class ConfiguredSqliteDialect(extensions: List<SqliteExtension>) :
     SqlDdlDialect,
+    SqlReplaceDialect,
     SqlInsertConflictDialect,
     SqlReturningDialect {
     private val ddlRenderer = SqliteDdlRenderer(SqliteTypeRegistry(extensions))
@@ -198,7 +203,9 @@ private class ConfiguredSqliteDialect(extensions: List<SqliteExtension>) :
 private fun sqliteConflictReferenceStyle(
     behavior: dev.quwac.kagiroi.sql.InsertConflictBehavior,
 ): SqlProposedInsertReferenceStyle {
-    if (behavior !is dev.quwac.kagiroi.sql.TargetedInsertConflictBehavior) {
+    if (behavior !is dev.quwac.kagiroi.sql.TargetedInsertConflictBehavior &&
+        behavior !is dev.quwac.kagiroi.sql.MultipleTargetedInsertConflictBehavior
+    ) {
         throw UnsupportedCapability("on-duplicate-key-update")
     }
     return SqlProposedInsertReferenceStyle.Excluded
@@ -210,6 +217,11 @@ private fun renderSqliteConflict(
     renderAssignments: (List<dev.quwac.kagiroi.sql.WriteAssignment>) -> String,
     renderPredicate: (dev.quwac.kagiroi.sql.SqlPredicate) -> String,
 ): String {
+    if (behavior is dev.quwac.kagiroi.sql.MultipleTargetedInsertConflictBehavior) {
+        return behavior.clauses.joinToString(
+            " ",
+        ) { renderSqliteConflict(dialect, it, renderAssignments, renderPredicate) }
+    }
     val targeted = behavior as? dev.quwac.kagiroi.sql.TargetedInsertConflictBehavior
         ?: throw UnsupportedCapability("on-duplicate-key-update")
     val target = when (val target = targeted.target) {

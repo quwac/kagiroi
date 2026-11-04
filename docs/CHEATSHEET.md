@@ -916,9 +916,93 @@ database.insertInto(Counters)
     .execute()
 ```
 
-PostgreSQL also has `onConflictConstraint(name)`. SQLite/D1 permit one conflict clause;
-MySQL/MariaDB take no target. Use raw SQL for SQL Server/Oracle MERGE, multiple SQLite clauses,
-and REPLACE.
+PostgreSQL also has `onConflictConstraint(name)`. SQLite/D1 permit multiple ordered conflict
+clauses; a target-less clause must be last. MySQL/MariaDB take no target.
+
+```kotlin
+// SQL (SQLite): INSERT INTO users (id, email) VALUES (?, ?)
+//               ON CONFLICT (id) DO NOTHING ON CONFLICT (email) DO NOTHING
+//               ON CONFLICT DO NOTHING
+insertInto(Users).values { set(Users.id, userId); set(Users.email, email) }
+    .onConflict(Users.id) { doNothing() }
+    .onConflict(Users.email) { doNothing() }
+    .onConflict { doNothing() }
+```
+
+SQLite/D1, MySQL, and MariaDB expose native `replaceInto`. A conflicting row can be deleted
+and replaced according to the database's REPLACE semantics. `values` and typed SELECT sources are
+supported; combining REPLACE with an ON CONFLICT clause is not supported.
+
+```kotlin
+// SQL (SQLite): REPLACE INTO users (id, email) VALUES (?, ?)
+// import dev.quwac.kagiroi.sqlite.replaceInto
+database.replaceInto(Users)
+    .values { set(Users.id, userId); set(Users.email, email) }
+    .execute()
+```
+
+### SQL Server and Oracle MERGE
+
+Use an aliased table or a derived query as the source. The target and source expressions remain
+typed. SQL Server supports conditional matched update/delete, unmatched insert, and unmatched by
+source update/delete clauses. Oracle supports update and insert predicates plus post-update
+`DELETE WHERE`; columns used in `ON` cannot be updated. Call `execute()` on the execution-bound query.
+For a SQL-only query, call the dialect's top-level `mergeInto(...)` and render or execute it later.
+
+```kotlin
+object MergeUsers : Table("users") {
+    val id = long("id")
+    val name = string("name")
+    val revision = long("revision")
+}
+object IncomingUsers : Table("incoming_users") {
+    val id = long("id")
+    val name = string("name")
+}
+
+// SQL (SQL Server): MERGE INTO users USING incoming_users AS incoming
+//                   ON (users.id = incoming.id) WHEN MATCHED THEN UPDATE SET name = incoming.name
+//                   WHEN NOT MATCHED THEN INSERT (id, name) VALUES (incoming.id, incoming.name);
+// import dev.quwac.kagiroi.sqlserver.mergeInto
+val incoming = IncomingUsers.alias("incoming")
+database.mergeInto(MergeUsers, incoming, MergeUsers.id eq incoming[IncomingUsers.id]) {
+    whenMatchedUpdate { set(MergeUsers.name, incoming[IncomingUsers.name]) }
+    whenNotMatchedInsert { set(MergeUsers.id, incoming[IncomingUsers.id]); set(MergeUsers.name, incoming[IncomingUsers.name]) }
+}.execute()
+
+// SQL (Oracle): MERGE INTO users USING incoming_users incoming ON (users.id = incoming.id)
+//               WHEN MATCHED THEN UPDATE SET name = incoming.name DELETE WHERE users.revision > ?
+//               WHEN NOT MATCHED THEN INSERT (id, name) VALUES (incoming.id, incoming.name)
+// import dev.quwac.kagiroi.oracle.mergeInto
+database.mergeInto(MergeUsers, incoming, MergeUsers.id eq incoming[IncomingUsers.id]) {
+    whenMatchedUpdate(deleteWhere = MergeUsers.revision gt 5L) { set(MergeUsers.name, incoming[IncomingUsers.name]) }
+    whenNotMatchedInsert { set(MergeUsers.id, incoming[IncomingUsers.id]); set(MergeUsers.name, incoming[IncomingUsers.name]) }
+}.execute()
+```
+
+SQL Server also exposes `whenMatchedDelete`, `whenNotMatchedBySourceUpdate`, and
+`whenNotMatchedBySourceDelete`. Conditions are passed with `where`; if two clauses of the same
+matched category are used, the first needs a condition and the actions must be update and delete.
+Oracle's `whenMatchedUpdate` accepts `where` and `deleteWhere`, and `whenNotMatchedInsert`
+accepts `where`.
+
+```kotlin
+// SQL (SQL Server): MERGE INTO users USING incoming_users AS incoming ON (users.id = incoming.id)
+//                   WHEN NOT MATCHED BY SOURCE THEN DELETE;
+database.mergeInto(MergeUsers, incoming, MergeUsers.id eq incoming[IncomingUsers.id]) {
+    whenNotMatchedBySourceDelete()
+}.execute()
+
+// SQL (SQL Server): MERGE INTO users USING (SELECT id, name FROM incoming_users) AS incoming
+//                   ON (users.id = incoming.id) WHEN MATCHED THEN UPDATE SET name = incoming.name;
+val incomingQuery = select(IncomingUsers.id, IncomingUsers.name).from(IncomingUsers).asTable("incoming")
+database.mergeInto(MergeUsers, incomingQuery, MergeUsers.id eq incomingQuery[IncomingUsers.id]) {
+    whenMatchedUpdate { set(MergeUsers.name, incomingQuery[IncomingUsers.name]) }
+}.execute()
+```
+
+MERGE accepts aliased table and derived query sources; CTEs, output rows, and vendor-specific
+hints are not supported by this API.
 
 ### D1 batch
 
@@ -1068,7 +1152,7 @@ Use dialect-specific APIs or raw SQL for features outside this common surface.
 Use `executeRaw(sql, parameters)` or `queryRaw(sql, parameters)` for complete parameterized
 statements. SQL fragments are not expressions.
 
-Common omissions include vendor-specific query syntax, writable CTE bodies, `MERGE`, `REPLACE`,
+Common omissions include vendor-specific query syntax, writable CTE bodies,
 automatic retries, and vendor index options. `intersectAll()` and `exceptAll()` are unavailable on
 SQL Server and SQLite/D1; MariaDB rejects `lag`/`lead` defaults and CTE-scoped DML. Oracle scopes
 CTEs to INSERT ... SELECT only. MySQL/MariaDB use `ON DUPLICATE KEY UPDATE`, not `ON CONFLICT`.

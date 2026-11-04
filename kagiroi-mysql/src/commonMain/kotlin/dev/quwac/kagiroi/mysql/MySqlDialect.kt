@@ -30,6 +30,7 @@ import dev.quwac.kagiroi.sql.SqlDialect
 import dev.quwac.kagiroi.sql.SqlGroupingCapability
 import dev.quwac.kagiroi.sql.SqlInsertConflictDialect
 import dev.quwac.kagiroi.sql.SqlProposedInsertReferenceStyle
+import dev.quwac.kagiroi.sql.SqlReplaceDialect
 import dev.quwac.kagiroi.sql.SqlStatementKind
 import dev.quwac.kagiroi.sql.SqlWindowCapability
 import dev.quwac.kagiroi.sql.SqlWithClausePlacement
@@ -47,7 +48,7 @@ import dev.quwac.kagiroi.sql.toNonEmptyListOrNull
 
 /** MySQL syntax for the SQL query models supported by kagiroi-sql. */
 @Suppress("TooManyFunctions") // A dialect owns all render hooks of the public SQL contract.
-object MySqlDialect : SqlDdlDialect, SqlInsertConflictDialect {
+object MySqlDialect : SqlDdlDialect, SqlReplaceDialect, SqlInsertConflictDialect {
     private val ddlRenderer = MySqlCompatibleDdlRenderer(MySqlTypeRegistry())
     private val types = MySqlTypeRegistry()
 
@@ -161,6 +162,7 @@ object MySqlDialect : SqlDdlDialect, SqlInsertConflictDialect {
 @Suppress("TooManyFunctions") // Keeps extension configuration delegating through every dialect hook.
 private class ConfiguredMySqlDialect(extensions: List<MySqlExtension>) :
     SqlDdlDialect,
+    SqlReplaceDialect,
     SqlInsertConflictDialect {
     private val ddlRenderer = MySqlCompatibleDdlRenderer(MySqlTypeRegistry(extensions))
     private val types = MySqlTypeRegistry(extensions)
