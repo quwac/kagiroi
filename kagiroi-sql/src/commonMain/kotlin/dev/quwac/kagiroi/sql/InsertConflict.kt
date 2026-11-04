@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // Conflict actions share validation and scoped builders.
+
 package dev.quwac.kagiroi.sql
 
 import dev.quwac.kagiroi.schema.BooleanExpression
@@ -19,6 +21,13 @@ class TargetedInsertConflictBehavior internal constructor(
     val target: InsertConflictTarget?,
     val action: TargetedInsertConflictAction,
 ) : InsertConflictBehavior
+
+/** Native REPLACE statement semantics. */
+data object ReplaceInsertBehavior : InsertConflictBehavior
+
+/** Ordered SQLite conflict clauses. A target-less clause may only appear last. */
+class MultipleTargetedInsertConflictBehavior internal constructor(val clauses: List<TargetedInsertConflictBehavior>) :
+    InsertConflictBehavior
 
 /** MySQL/MariaDB behavior for any primary-key or unique-key duplicate. */
 class DuplicateKeyUpdateBehavior internal constructor(val update: InsertConflictUpdate) : InsertConflictBehavior
@@ -159,9 +168,44 @@ fun <S> InsertQuery<S>.withTargetedConflict(
     targetPredicate: SqlPredicate? = null,
     updateRequiresTarget: Boolean,
     block: TargetedInsertConflictBuilder.() -> Unit,
-): InsertQuery<S>
-    where S : InsertQueryState.Renderable {
-    require(conflictBehavior == null) { "INSERT already has a conflict behavior" }
+): InsertQuery<S> where S : InsertQueryState.Renderable =
+    addTargetedConflict(targetColumns, constraintName, targetPredicate, updateRequiresTarget, false, block)
+
+/** Appends an ordered SQLite conflict clause. */
+fun <S> InsertQuery<S>.withSqliteConflict(
+    targetColumns: List<WritableColumn<*>>? = null,
+    targetPredicate: SqlPredicate? = null,
+    block: TargetedInsertConflictBuilder.() -> Unit,
+): InsertQuery<S> where S : InsertQueryState.Renderable =
+    addTargetedConflict(targetColumns, null, targetPredicate, false, true, block)
+
+private fun <S> InsertQuery<S>.addTargetedConflict(
+    targetColumns: List<WritableColumn<*>>?,
+    constraintName: String?,
+    targetPredicate: SqlPredicate?,
+    updateRequiresTarget: Boolean,
+    allowMultiple: Boolean,
+    block: TargetedInsertConflictBuilder.() -> Unit,
+): InsertQuery<S> where S : InsertQueryState.Renderable {
+    val previous = when (val existing = conflictBehavior) {
+        null -> emptyList()
+
+        is TargetedInsertConflictBehavior -> {
+            require(allowMultiple) { "INSERT already has a conflict behavior" }
+            require(
+                existing.target !is InsertConflictTarget.Constraint,
+            ) { "SQLite does not support constraint targets" }
+            listOf(existing)
+        }
+
+        is MultipleTargetedInsertConflictBehavior -> {
+            require(allowMultiple) { "INSERT already has a conflict behavior" }
+            existing.clauses
+        }
+
+        else -> throw IllegalArgumentException("INSERT already has a conflict behavior")
+    }
+    require(previous.none { it.target == null }) { "A target-less conflict clause must be last" }
     require(
         targetColumns == null || constraintName == null,
     ) { "Conflict target cannot use columns and a constraint together" }
@@ -186,7 +230,9 @@ fun <S> InsertQuery<S>.withTargetedConflict(
         }
     }
     val action = TargetedInsertConflictBuilder(into, target, updateRequiresTarget).apply(block).build()
-    return InsertQuery(into, source, withClause, pendingTargetColumns, TargetedInsertConflictBehavior(target, action))
+    val clause = TargetedInsertConflictBehavior(target, action)
+    val behavior = if (previous.isEmpty()) clause else MultipleTargetedInsertConflictBehavior(previous + clause)
+    return InsertQuery(into, source, withClause, pendingTargetColumns, behavior)
 }
 
 /** Adds a dialect-specific duplicate-key update behavior to a completed SQL-only INSERT. */
@@ -220,16 +266,22 @@ private fun Table.requireConflictCurrentColumn(column: Column<*>, clause: String
     }
 }
 
-internal fun InsertConflictBehavior.requireValidScope(target: Table) = when (this) {
-    is TargetedInsertConflictBehavior -> {
-        (this.target as? InsertConflictTarget.Columns)?.predicate?.requireConflictPredicateScope(
-            target,
-            "Conflict target WHERE",
-        )
-        (action as? TargetedInsertConflictAction.DoUpdate)?.update?.requireValidScope(target)
-    }
+internal fun InsertConflictBehavior.requireValidScope(target: Table) {
+    when (this) {
+        is TargetedInsertConflictBehavior -> {
+            (this.target as? InsertConflictTarget.Columns)?.predicate?.requireConflictPredicateScope(
+                target,
+                "Conflict target WHERE",
+            )
+            (action as? TargetedInsertConflictAction.DoUpdate)?.update?.requireValidScope(target)
+        }
 
-    is DuplicateKeyUpdateBehavior -> update.requireValidScope(target)
+        ReplaceInsertBehavior -> Unit
+
+        is MultipleTargetedInsertConflictBehavior -> clauses.forEach { it.requireValidScope(target) }
+
+        is DuplicateKeyUpdateBehavior -> update.requireValidScope(target)
+    }
 }
 
 private fun InsertConflictUpdate.requireValidScope(target: Table) {
@@ -261,4 +313,10 @@ private fun requireConflictDirectReferences(references: Iterable<RelationReferen
     require(invalid == null) {
         "$clause reference is not registered by target table $target: ${requireNotNull(invalid).expression}"
     }
+}
+
+/** Marks an INSERT source as a dialect-specific native REPLACE statement. */
+fun <S : InsertQueryState> InsertQuery<S>.asNativeReplace(): InsertQuery<S> {
+    require(conflictBehavior == null) { "INSERT already has a conflict behavior" }
+    return InsertQuery(into, source, withClause, pendingTargetColumns, ReplaceInsertBehavior)
 }

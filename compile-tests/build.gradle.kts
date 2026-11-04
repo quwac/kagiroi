@@ -24,6 +24,8 @@ kotlin {
                 implementation(project(":kagiroi-kotlinx-datetime"))
                 implementation(project(":kagiroi-mariadb"))
                 implementation(project(":kagiroi-mysql"))
+                implementation(project(":kagiroi-oracle"))
+                implementation(project(":kagiroi-sqlserver"))
                 implementation(project(":kagiroi-postgres"))
                 implementation(project(":kagiroi-sqlite"))
             }

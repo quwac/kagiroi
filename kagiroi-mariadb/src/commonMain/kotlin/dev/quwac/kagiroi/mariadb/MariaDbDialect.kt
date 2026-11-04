@@ -43,6 +43,7 @@ import dev.quwac.kagiroi.sql.SqlDdlDialect
 import dev.quwac.kagiroi.sql.SqlGroupingCapability
 import dev.quwac.kagiroi.sql.SqlInsertConflictDialect
 import dev.quwac.kagiroi.sql.SqlProposedInsertReferenceStyle
+import dev.quwac.kagiroi.sql.SqlReplaceDialect
 import dev.quwac.kagiroi.sql.SqlSequenceDialect
 import dev.quwac.kagiroi.sql.SqlStatementKind
 import dev.quwac.kagiroi.sql.SqlWindowCapability
@@ -59,7 +60,7 @@ private const val NAVIGATION_DEFAULT_ARGUMENT_COUNT = 3
  * for the generic operations whose syntax is shared.
  */
 @Suppress("TooManyFunctions") // One dialect contract intentionally owns all portable rendering decisions.
-object MariaDbDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlSequenceDialect {
+object MariaDbDialect : SqlDdlDialect, SqlReplaceDialect, SqlInsertConflictDialect, SqlSequenceDialect {
     private val ddlRenderer = MySqlCompatibleDdlRenderer(
         MariaDbTypeRegistry()::sqlNameOf,
         ::mariaDbGeneratedStorageKeyword,
@@ -207,6 +208,7 @@ object MariaDbDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlSequenceDial
 @Suppress("TooManyFunctions") // Delegates each dialect concern while replacing extension-owned type mappings.
 private class ConfiguredMariaDbDialect(extensions: List<MySqlExtension>) :
     SqlDdlDialect,
+    SqlReplaceDialect,
     SqlInsertConflictDialect,
     SqlSequenceDialect {
     private val ddlRenderer = MySqlCompatibleDdlRenderer(

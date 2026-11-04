@@ -28,6 +28,8 @@ import dev.quwac.kagiroi.sql.SqlDmlOutputDialect
 import dev.quwac.kagiroi.sql.SqlDmlOutputImage
 import dev.quwac.kagiroi.sql.SqlGroupingCapability
 import dev.quwac.kagiroi.sql.SqlJoinCapability
+import dev.quwac.kagiroi.sql.SqlMergeDialect
+import dev.quwac.kagiroi.sql.SqlMergeKind
 import dev.quwac.kagiroi.sql.SqlSelectPagination
 import dev.quwac.kagiroi.sql.SqlSequenceDialect
 import dev.quwac.kagiroi.sql.SqlWindowCapability
@@ -44,7 +46,9 @@ import dev.quwac.kagiroi.sql.toNonEmptyListOrNull
 
 /** T-SQL syntax and physical type rules for Microsoft SQL Server. */
 @Suppress("TooManyFunctions") // SQL Server owns each dialect rendering variation in one public contract.
-object SqlServerDialect : SqlDdlDialect, SqlDmlOutputDialect, SqlSequenceDialect {
+object SqlServerDialect : SqlDdlDialect, SqlMergeDialect, SqlDmlOutputDialect, SqlSequenceDialect {
+    override val mergeKind: SqlMergeKind = SqlMergeKind.SQL_SERVER
+
     private val types = SqlServerTypeRegistry()
     private val renderer = SqlServerDdlRenderer(types)
 
@@ -172,8 +176,11 @@ object SqlServerDialect : SqlDdlDialect, SqlDmlOutputDialect, SqlSequenceDialect
 @Suppress("TooManyFunctions")
 private class ConfiguredSqlServerDialect(extensions: List<SqlServerExtension>) :
     SqlDdlDialect,
+    SqlMergeDialect,
     SqlDmlOutputDialect,
     SqlSequenceDialect {
+    override val mergeKind: SqlMergeKind = SqlMergeKind.SQL_SERVER
+
     private val types = SqlServerTypeRegistry(extensions)
     private val renderer = SqlServerDdlRenderer(types)
 

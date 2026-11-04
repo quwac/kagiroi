@@ -6,28 +6,26 @@ import dev.quwac.kagiroi.sql.InsertQuery
 import dev.quwac.kagiroi.sql.InsertQueryState
 import dev.quwac.kagiroi.sql.SqlPredicate
 import dev.quwac.kagiroi.sql.TargetedInsertConflictBuilder
-import dev.quwac.kagiroi.sql.withTargetedConflict
+import dev.quwac.kagiroi.sql.withSqliteConflict
 
-/** Adds one SQLite `ON CONFLICT (columns) [WHERE predicate]` clause to a completed typed INSERT. */
+/** Adds a SQLite `ON CONFLICT (columns) [WHERE predicate]` clause to a completed typed INSERT. */
 fun <S> InsertQuery<S>.onConflict(
     column: WritableColumn<*>,
     vararg additionalColumns: WritableColumn<*>,
     where: SqlPredicate? = null,
     block: TargetedInsertConflictBuilder.() -> Unit,
 ): InsertQuery<S>
-    where S : InsertQueryState.Renderable = withTargetedConflict(
+    where S : InsertQueryState.Renderable = withSqliteConflict(
     targetColumns = listOf(column, *additionalColumns),
     targetPredicate = where,
-    updateRequiresTarget = false,
     block = block,
 )
 
-/** Adds SQLite's single final target-less `ON CONFLICT` clause to a completed typed INSERT. */
+/** Adds SQLite's final target-less `ON CONFLICT` clause to a completed typed INSERT. */
 fun <S> InsertQuery<S>.onConflict(
     block: TargetedInsertConflictBuilder.() -> Unit,
 ): InsertQuery<S>
-    where S : InsertQueryState.Renderable =
-    withTargetedConflict(updateRequiresTarget = false, block = block)
+    where S : InsertQueryState.Renderable = withSqliteConflict(block = block)
 
 /** Execution-bound SQLite `ON CONFLICT (columns)` extension. */
 fun <S> ExecutableInsertQuery<S>.onConflict(
@@ -36,10 +34,9 @@ fun <S> ExecutableInsertQuery<S>.onConflict(
     where: SqlPredicate? = null,
     block: TargetedInsertConflictBuilder.() -> Unit,
 ): ExecutableInsertQuery<S>
-    where S : InsertQueryState.Renderable = withTargetedConflict(
+    where S : InsertQueryState.Renderable = withSqliteConflict(
     targetColumns = listOf(column, *additionalColumns),
     targetPredicate = where,
-    updateRequiresTarget = false,
     block = block,
 )
 
@@ -47,5 +44,4 @@ fun <S> ExecutableInsertQuery<S>.onConflict(
 fun <S> ExecutableInsertQuery<S>.onConflict(
     block: TargetedInsertConflictBuilder.() -> Unit,
 ): ExecutableInsertQuery<S>
-    where S : InsertQueryState.Renderable =
-    withTargetedConflict(updateRequiresTarget = false, block = block)
+    where S : InsertQueryState.Renderable = withSqliteConflict(block = block)

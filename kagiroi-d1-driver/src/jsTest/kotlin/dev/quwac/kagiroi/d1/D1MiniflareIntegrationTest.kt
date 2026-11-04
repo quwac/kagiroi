@@ -54,6 +54,7 @@ import dev.quwac.kagiroi.sql.values
 import dev.quwac.kagiroi.sql.where
 import dev.quwac.kagiroi.sql.with
 import dev.quwac.kagiroi.sqlite.onConflict
+import dev.quwac.kagiroi.sqlite.replaceInto
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.resume
@@ -136,6 +137,44 @@ class D1MiniflareIntegrationTest {
                 doNothing()
             }.returning(D1UpsertRows.id).one()
             assertEquals(3, inserted[D1UpsertRows.id])
+        } finally {
+            miniflare.dispose().await()
+        }
+    }
+
+    @Test
+    fun executesMultipleConflictClausesAndReplace() = runTest {
+        val miniflare = createMiniflare(
+            MiniflareModule.Miniflare,
+            MiniflareModule.convertV4MiniflareOptions(options()),
+        )
+        try {
+            val database = D1Database(miniflare.getD1Database("DB").await())
+            database.execute(createTable(D1UpsertRows))
+            database.insertInto(D1UpsertRows).values {
+                set(D1UpsertRows.id, 1)
+                set(D1UpsertRows.email, "one@example.test")
+                set(D1UpsertRows.name, "Original")
+                set(D1UpsertRows.revision, 1)
+            }.execute()
+            val updated = database.insertInto(D1UpsertRows).values {
+                set(D1UpsertRows.id, 2)
+                set(D1UpsertRows.email, "one@example.test")
+                set(D1UpsertRows.name, "Updated")
+                set(D1UpsertRows.revision, 2)
+            }.onConflict(D1UpsertRows.id) { doNothing() }
+                .onConflict(D1UpsertRows.email) {
+                    doUpdate { set(D1UpsertRows.name, excluded(D1UpsertRows.name)) }
+                }.onConflict { doNothing() }
+                .returning(D1UpsertRows.name).one()
+            assertEquals("Updated", updated[D1UpsertRows.name])
+            val replaced = database.replaceInto(D1UpsertRows).values {
+                set(D1UpsertRows.id, 2)
+                set(D1UpsertRows.email, "one@example.test")
+                set(D1UpsertRows.name, "Replaced")
+                set(D1UpsertRows.revision, 3)
+            }.returning(D1UpsertRows.id).one()
+            assertEquals(2, replaced[D1UpsertRows.id])
         } finally {
             miniflare.dispose().await()
         }

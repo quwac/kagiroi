@@ -34,6 +34,7 @@ const cases = [
   ["SavepointScopePositive", []],
   ["ReturningScopePositive", []],
   ["DialectInsertConflictPositive", []],
+  ["MergeReplacePositive", []],
   ["WrongBigNumberComparison", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["WrongEnumComparison", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["WrongMappedColumnComparison", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
@@ -97,6 +98,7 @@ const cases = [
   ["GeneratedWriteAssignment", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["GeneratedInsertSelect", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["WrongDialectInsertConflict", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
+  ["WrongMergeAssignment", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["StringIdentity", ["NONE_APPLICABLE", "UNRESOLVED_REFERENCE_WRONG_RECEIVER"]],
   ["UnqualifiedDelete", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
 ];

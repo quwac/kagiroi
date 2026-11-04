@@ -497,6 +497,9 @@ data class SqlParameter<T>(val value: T, val expression: SqlExpression<*>?) {
 
 data class RenderedSql(val sql: String, val parameters: List<SqlParameter<*>>)
 
+/** Dialect capability for native REPLACE INTO statements. */
+interface SqlReplaceDialect
+
 /** Renders a query model and keeps every runtime value separate from the SQL text. */
 class SqlRenderer(private val dialect: SqlDialect) {
     fun render(query: QueryExpression<*, *>): RenderedSql {
@@ -506,6 +509,8 @@ class SqlRenderer(private val dialect: SqlDialect) {
 
     fun <S : InsertQueryState.Renderable> render(query: InsertQuery<S>): RenderedSql =
         DmlOutputRenderer(dialect).render(query)
+
+    fun render(query: MergeQuery): RenderedSql = DmlOutputRenderer(dialect).render(query)
 
     fun <S : UpdateQueryState.Renderable> render(query: UpdateQuery<S>): RenderedSql =
         DmlOutputRenderer(dialect).render(query)
@@ -528,11 +533,67 @@ class SqlRenderer(private val dialect: SqlDialect) {
 /** Renders DML statements with an optional dialect-specific row-image result clause. */
 @Suppress("TooManyFunctions") // INSERT placement, DML kinds, and OUTPUT share one parameter context.
 internal class DmlOutputRenderer(private val dialect: SqlDialect) {
+    @Suppress("CyclomaticComplexMethod") // The two native MERGE grammars share one parameter context.
+    fun render(query: MergeQuery): RenderedSql {
+        val mergeDialect = dialect as? SqlMergeDialect ?: throw UnsupportedCapability("merge")
+        if (mergeDialect.mergeKind != query.kind) throw UnsupportedCapability("merge-dialect")
+        val context = RenderContext(dialect)
+        val sql = buildString {
+            append("MERGE INTO ").append(dialect.quoteTable(query.target))
+            append(" USING ").append(context.renderMergeSource(query.source))
+            append(" ON (").append(context.renderPredicate(query.on)).append(')')
+            query.clauses.forEach { clause ->
+                append(
+                    when (clause.match) {
+                        MergeMatch.MATCHED -> " WHEN MATCHED"
+                        MergeMatch.NOT_MATCHED -> " WHEN NOT MATCHED"
+                        MergeMatch.NOT_MATCHED_BY_SOURCE -> " WHEN NOT MATCHED BY SOURCE"
+                    },
+                )
+                if (query.kind == SqlMergeKind.SQL_SERVER) {
+                    clause.predicate?.let { append(" AND ").append(context.renderPredicate(it)) }
+                }
+                when (val action = clause.action) {
+                    is MergeAction.Update -> {
+                        append(" THEN UPDATE SET ").append(renderWriteAssignments(action.assignments, context))
+                        if (query.kind == SqlMergeKind.ORACLE) {
+                            clause.predicate?.let { append(" WHERE ").append(context.renderPredicate(it)) }
+                            action.deleteWhere?.let { append(" DELETE WHERE ").append(context.renderPredicate(it)) }
+                        }
+                    }
+
+                    MergeAction.Delete -> append(" THEN DELETE")
+
+                    is MergeAction.Insert -> {
+                        append(" THEN INSERT (")
+                        append(action.assignments.joinToString(", ") { dialect.quoteIdentifier(it.column.name) })
+                        append(") VALUES (")
+                        append(
+                            action.assignments.joinToString(", ") {
+                                when (it) {
+                                    is ColumnAssignment<*> -> context.addColumnParameter(it)
+                                    is ExpressionAssignment<*> -> context.renderExpression(it.expression)
+                                }
+                            },
+                        )
+                        append(')')
+                        if (query.kind == SqlMergeKind.ORACLE) {
+                            clause.predicate?.let { append(" WHERE ").append(context.renderPredicate(it)) }
+                        }
+                    }
+                }
+            }
+            if (query.kind == SqlMergeKind.SQL_SERVER) append(';')
+        }
+        return RenderedSql(sql, context.parameters.toList())
+    }
+
     fun <S : InsertQueryState.Renderable> render(query: InsertQuery<S>): RenderedSql = renderInsert(query, null)
 
     fun <S : InsertQueryState.Renderable> render(query: InsertQuery<S>, output: SqlDmlOutput): RenderedSql =
         renderInsert(query, output)
 
+    @Suppress("ThrowsCount") // Each unsupported dialect capability is rejected at its boundary.
     private fun <S : InsertQueryState.Renderable> renderInsert(
         query: InsertQuery<S>,
         output: SqlDmlOutput?,
@@ -540,7 +601,10 @@ internal class DmlOutputRenderer(private val dialect: SqlDialect) {
         query.requireWriteValidScope()
         val context = RenderContext(dialect)
         val source = requireNotNull(query.source) { "INSERT requires a VALUES or query source" }
-        val conflict = query.conflictBehavior?.let { behavior ->
+        if (query.conflictBehavior === ReplaceInsertBehavior && dialect !is SqlReplaceDialect) {
+            throw UnsupportedCapability("replace")
+        }
+        val conflict = query.conflictBehavior?.takeUnless { it === ReplaceInsertBehavior }?.let { behavior ->
             val conflictDialect = dialect as? SqlInsertConflictDialect
                 ?: throw UnsupportedCapability("insert-conflict")
             InsertConflictRendering(
@@ -657,7 +721,7 @@ internal class DmlOutputRenderer(private val dialect: SqlDialect) {
                 is InsertSource.Values -> source.rows.first().assignments.map(ColumnAssignment<*>::column)
                 is InsertSource.Query -> source.targetColumns
             }
-            append("INSERT INTO ")
+            append(if (query.conflictBehavior === ReplaceInsertBehavior) "REPLACE INTO " else "INSERT INTO ")
             append(dialect.quoteTable(query.into))
             append(" (")
             append(columns.joinToString(", ") { dialect.quoteIdentifier(it.name) })
@@ -820,6 +884,7 @@ private fun QueryExpression<*, *>.relationAliases(): List<String> = when (this) 
 @Suppress("LargeClass", "TooManyFunctions") // Shared state keeps parameter positions global across nested queries.
 private class RenderContext(private val dialect: SqlDialect) {
     val parameters = mutableListOf<SqlParameter<*>>()
+    private var nativeProjectionDepth = 0
 
     /** Renders one lexical CTE scope through this context's shared parameter collector. */
     fun renderWithClause(
@@ -1058,10 +1123,15 @@ private class RenderContext(private val dialect: SqlDialect) {
     ): String {
         val alias = projection.projectionAlias()
         val expression = alias?.expression ?: projection.unwrappedNullableExpression()
-        val rendered = dialect.renderSelectExpression(
-            expression,
-            renderExpression(expression, visibleSources, visibleCtes),
-        )
+        val reference = renderExpression(expression, visibleSources, visibleCtes)
+        val rendered = if (nativeProjectionDepth > 0) {
+            reference
+        } else {
+            dialect.renderSelectExpression(
+                expression,
+                reference,
+            )
+        }
         val recursiveAnchorRendered = if (recursiveAnchor) {
             dialect.renderRecursiveCteAnchorProjection(projection, rendered)
         } else {
@@ -1179,6 +1249,16 @@ private class RenderContext(private val dialect: SqlDialect) {
                     dialect.renderOrder(it.direction, it.nullOrdering)
             },
         )
+    }
+
+    fun renderMergeSource(source: RelationSource): String {
+        if (source !is DerivedTable) return renderRelationSource(source, emptyList())
+        nativeProjectionDepth++
+        return try {
+            renderRelationSource(source, emptyList())
+        } finally {
+            nativeProjectionDepth--
+        }
     }
 
     fun renderRelationSource(source: RelationSource, availableCtes: List<CommonTableExpression>): String =
