@@ -24,12 +24,9 @@ Columns are `NOT NULL` by default. `nullable()` changes the Kotlin and SQL type.
 | `kotlin.time.Instant` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | `TIMESTAMP WITH TIME ZONE` | `TIMESTAMP(6)` | `DATETIME(6)` | `DATETIMEOFFSET(7)` | `TIMESTAMP(9) WITH TIME ZONE` |
 | `kotlin.time.Duration` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `NVARCHAR(MAX)` | ISO 8601 `VARCHAR2(4000 CHAR)` |
 
-\* SQLite uses `INTEGER` for `ULong` to preserve numeric comparison and
-arithmetic in SQL. SQLite `INTEGER` is signed 64-bit, so values greater than
-`Long.MAX_VALUE` are rejected by this default mapping. `SqliteTypes.textUlong`
-is an opt-in full-range mapping: it stores 20-digit, zero-padded decimal `TEXT`,
-which preserves numeric comparison and sorting between values using the same
-mapping. SQLite arithmetic on `TEXT` does not preserve the full `ULong` precision.
+\* SQLite defaults to `INTEGER` for `ULong` arithmetic and rejects values above
+`Long.MAX_VALUE`. Use `textUlong(name)` for the full range as zero-padded `TEXT`;
+SQLite arithmetic on this mapping is imprecise.
 D1 also rejects integer bindings outside the JavaScript safe-integer range.
 Neither transport silently converts those values through JavaScript `Number`.
 
@@ -68,14 +65,14 @@ belong in a dialect extension or parameterized raw DDL.
 
 ### SQLite and Cloudflare D1
 
-`SqliteTypes` exposes SQLite storage classes with fixed scalar contracts and a full-range `ULong` mapping:
+`SqliteTypes` exposes SQLite storage classes and a full-range `ULong` mapping:
 
 | Factory | DDL | Kotlin transport |
 | --- | --- | --- |
 | `SqliteTypes.integer` | `INTEGER` | `Long` |
 | `SqliteTypes.real` | `REAL` | `Double` |
 | `SqliteTypes.text` | `TEXT` | `String` |
-| `Table.textUlong(name)` / `SqliteTypes.textUlong` | `TEXT` | `ULong` encoded as 20-digit zero-padded decimal text |
+| `Table.textUlong(name)` / `SqliteTypes.textUlong` | `TEXT` | `ULong` (20-digit zero-padded) |
 | `SqliteTypes.blob` | `BLOB` | `ByteArray` |
 
 `mapped(...)` adds a domain mapping. `named(...)` and `namedText(...)` quote a caller-selected

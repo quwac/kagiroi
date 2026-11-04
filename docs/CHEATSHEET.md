@@ -35,7 +35,6 @@ object Users : Table(
 | `boolean`, `bytes` | `Boolean`, `ByteArray` |
 | `uuid`, `instant`, `duration` | `Uuid`, `Instant`, `Duration` |
 | `column(name, type)` | A `ColumnType<T>` supplied by an extension module |
-| `textUlong(name)` (SQLite) | `ULong` stored as zero-padded `TEXT` |
 
 | Modifier | Meaning |
 | --- | --- |
