@@ -24,10 +24,11 @@ Columns are `NOT NULL` by default. `nullable()` changes the Kotlin and SQL type.
 | `kotlin.time.Instant` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | `TIMESTAMP WITH TIME ZONE` | `TIMESTAMP(6)` | `DATETIME(6)` | `DATETIMEOFFSET(7)` | `TIMESTAMP(9) WITH TIME ZONE` |
 | `kotlin.time.Duration` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `TEXT` | ISO 8601 `NVARCHAR(MAX)` | ISO 8601 `VARCHAR2(4000 CHAR)` |
 
-\* SQLite has signed 64-bit `INTEGER` storage. Its local drivers reject an
-`ULong` greater than `Long.MAX_VALUE`; D1 also rejects integer bindings outside
-the JavaScript safe-integer range. Neither transport silently converts those
-values through JavaScript `Number`.
+\* SQLite uses `INTEGER` for `ULong` to preserve numeric comparison and
+arithmetic in SQL. SQLite `INTEGER` is signed 64-bit, so values greater than
+`Long.MAX_VALUE` are rejected and the full Kotlin `ULong` range is not supported.
+D1 also rejects integer bindings outside the JavaScript safe-integer range.
+Neither transport silently converts those values through JavaScript `Number`.
 
 † MariaDB native `UUID` requires MariaDB 10.7 or newer. `MariaDbTypes.charUuid`
 and `charUuid(name)` select portable `CHAR(36)`; `MariaDbTypes.binaryUuid` and
