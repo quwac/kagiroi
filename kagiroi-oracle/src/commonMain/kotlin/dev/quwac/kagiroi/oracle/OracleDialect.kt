@@ -187,6 +187,7 @@ object OracleDialect : SqlDdlDialect, SqlMergeDialect, SqlDmlReturningIntoDialec
         emptyList(),
     )
 
+    /** Provides the configured result. */
     fun configured(extensions: Iterable<OracleExtension>): SqlDdlDialect {
         val installed = extensions.toList()
         return if (installed.isEmpty()) this else ConfiguredOracleDialect(installed)

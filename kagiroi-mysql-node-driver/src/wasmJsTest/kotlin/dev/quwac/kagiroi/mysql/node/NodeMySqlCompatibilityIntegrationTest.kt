@@ -9,7 +9,9 @@ import kotlin.js.JsString
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
+/** Represents node my sql compatibility integration test. */
 class NodeMySqlCompatibilityIntegrationTest {
+    /** Provides the analytical window functions result. */
     @Test
     fun analyticalWindowFunctions() = runTest {
         val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest
@@ -17,6 +19,7 @@ class NodeMySqlCompatibilityIntegrationTest {
         verifyMySqlExplicitNullTreatment(configuredDatabase(url))
     }
 
+    /** Provides the local my sql contract result. */
     @Test
     fun localMySqlContract() = runTest {
         val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest

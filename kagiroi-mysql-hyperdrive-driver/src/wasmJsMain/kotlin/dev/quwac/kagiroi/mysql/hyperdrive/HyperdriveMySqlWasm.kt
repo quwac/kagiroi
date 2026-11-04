@@ -24,13 +24,23 @@ import kotlin.js.unsafeCast
 
 /** The Cloudflare Workers Hyperdrive binding passed through an environment object. */
 external interface CloudflareHyperdriveBinding : JsAny {
+    /** Value associated with host. */
     val host: String
+
+    /** Value associated with user. */
     val user: String
+
+    /** Value associated with password. */
     val password: String
+
+    /** Value associated with database. */
     val database: String
+
+    /** Value associated with port. */
     val port: Int
 }
 
+/** Provides the hyperdrive my sql database result. */
 fun HyperdriveMySqlDatabase(
     binding: CloudflareHyperdriveBinding,
     configure: HyperdriveMySqlDatabaseConfiguration.() -> Unit = {},

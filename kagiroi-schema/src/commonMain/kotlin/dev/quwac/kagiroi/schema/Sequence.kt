@@ -1,6 +1,10 @@
 package dev.quwac.kagiroi.schema
 
-/** An independent database sequence that allocates signed 64-bit values. */
+/** An independent database sequence that allocates signed 64-bit values.
+ *
+ * @property name sequence name.
+ * @property schemaName containing schema name, or `null` when unspecified.
+ */
 @ConsistentCopyVisibility
 data class Sequence internal constructor(val name: String, val schemaName: String?) {
     init {
@@ -12,18 +16,30 @@ data class Sequence internal constructor(val name: String, val schemaName: Strin
 /** Declares an independent signed 64-bit sequence. */
 fun sequence(name: String, schemaName: String? = null): Sequence = Sequence(name, schemaName)
 
-/** A typed expression that requests the next signed 64-bit value from [sequence]. */
+/** A typed expression that requests the next signed 64-bit value from [sequence].
+ *
+ * @property sequence sequence whose next value is requested.
+ */
 @ConsistentCopyVisibility
 data class SequenceNextValue internal constructor(val sequence: Sequence) : SqlExpression<Long> {
     private val result = resultExpression(LongColumnType)
 
+    /** Columns referenced by this expression; always empty because a sequence is independent. */
     override val referencedColumns: List<Column<*>> = emptyList()
+
+    /** Kotlin type of the sequence value. */
     override val type: ColumnType<*> get() = result.type
+
+    /** Physical type used to store the sequence value. */
     override val storageType: ColumnType<*> get() = result.storageType
+
+    /** Sequence values are never nullable. */
     override val isNullable: Boolean get() = false
 
+    /** Encodes a sequence value using the signed 64-bit storage mapping. */
     override fun toStorageValue(value: Long): Any? = result.toStorageValue(value)
 
+    /** Decodes a sequence result using the signed 64-bit storage mapping. */
     override fun fromStorageValue(value: Any?): Long = result.fromStorageValue(value)
 }
 

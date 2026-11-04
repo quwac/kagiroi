@@ -153,6 +153,7 @@ object MySqlDialect : SqlDdlDialect, SqlReplaceDialect, SqlInsertConflictDialect
 
     override fun renderDdl(statement: DdlStatement): RenderedDdl = ddlRenderer.renderDdl(this, statement)
 
+    /** Provides the configured result. */
     fun configured(extensions: Iterable<MySqlExtension>): SqlDdlDialect {
         val installed = extensions.toList()
         return if (installed.isEmpty()) this else ConfiguredMySqlDialect(installed)
@@ -273,6 +274,7 @@ class MySqlCompatibleDdlRenderer(
         functionalIndexTypeNameOf = { expression -> types.sqlNameOf(expression.storageType) },
     )
 
+    /** Renders the render result. */
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
             is CreateTable -> renderCreateTable(dialect, statement)
@@ -295,6 +297,7 @@ class MySqlCompatibleDdlRenderer(
         emptyList(),
     )
 
+    /** Renders the render ddl result. */
     fun renderDdl(dialect: SqlDialect, statement: DdlStatement): RenderedDdl = when (statement) {
         is AlterTable -> renderAlterPlan(dialect, statement)
         else -> RenderedDdl.of(render(dialect, statement))

@@ -13,6 +13,7 @@ import kotlin.test.Test
 
 /** Opt-in MariaDB origin contract through the same Kotlin/Wasm Hyperdrive transport. */
 class MariaDbCompatibilityIntegrationTest {
+    /** Provides the maria db hyperdrive compatible contract result. */
     @Test
     fun mariaDbHyperdriveCompatibleContract() = runTest {
         val connectionString = mariaDbTestConnectionString() ?: return@runTest

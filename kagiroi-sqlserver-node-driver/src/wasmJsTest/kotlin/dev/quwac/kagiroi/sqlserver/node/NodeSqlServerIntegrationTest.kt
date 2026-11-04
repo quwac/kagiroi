@@ -7,7 +7,9 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
+/** Represents node sql server integration test. */
 class NodeSqlServerIntegrationTest {
+    /** Provides the sql server contract result. */
     @Test
     fun sqlServerContract() = runTest {
         val host = environmentVariable("KAGIROI_SQLSERVER_TEST_HOST") ?: return@runTest

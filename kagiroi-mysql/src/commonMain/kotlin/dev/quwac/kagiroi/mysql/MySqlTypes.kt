@@ -27,27 +27,70 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Native MySQL column types used by Kagiroi mappings. */
+/** Native MySQL column types used by Kagiroi mappings.
+ *
+ * @property sqlName SQL type name used in DDL.
+ * @property protocolType MySQL protocol type identifier returned by the server.
+ */
 enum class MySqlType(val sqlName: String, val protocolType: Int) {
+    /** Value associated with boolean. */
     BOOLEAN("BOOLEAN", 1),
+
+    /** Value associated with tinyint. */
     TINYINT("TINYINT", 1),
+
+    /** Value associated with tinyint unsigned. */
     TINYINT_UNSIGNED("TINYINT UNSIGNED", 1),
+
+    /** Value associated with smallint. */
     SMALLINT("SMALLINT", 2),
+
+    /** Value associated with smallint unsigned. */
     SMALLINT_UNSIGNED("SMALLINT UNSIGNED", 2),
+
+    /** Value associated with integer. */
     INTEGER("INT", 3),
+
+    /** Value associated with integer unsigned. */
     INTEGER_UNSIGNED("INT UNSIGNED", 3),
+
+    /** Value associated with float. */
     FLOAT("FLOAT", 4),
+
+    /** Value associated with double. */
     DOUBLE("DOUBLE", 5),
+
+    /** Value associated with timestamp. */
     TIMESTAMP("TIMESTAMP(6)", 7),
+
+    /** Value associated with bigint. */
     BIGINT("BIGINT", 8),
+
+    /** Value associated with bigint unsigned. */
     BIGINT_UNSIGNED("BIGINT UNSIGNED", 8),
+
+    /** Value associated with date. */
     DATE("DATE", 10),
+
+    /** Value associated with time. */
     TIME("TIME(6)", 11),
+
+    /** Value associated with datetime. */
     DATETIME("DATETIME(6)", 12),
+
+    /** Value associated with decimal. */
     DECIMAL("DECIMAL", 246),
+
+    /** Value associated with blob. */
     BLOB("BLOB", 252),
+
+    /** Value associated with text. */
     TEXT("TEXT", 252),
+
+    /** Value associated with char uuid. */
     CHAR_UUID("CHAR(36)", 254),
+
+    /** Value associated with binary uuid. */
     BINARY_UUID("BINARY(16)", 254),
 }
 
@@ -56,12 +99,19 @@ object MySqlBinaryUuidStorageType : ColumnType<ByteArray>("MySQL-compatible BINA
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.mysql.binaryUuidStorage")
 }
 
-/** Associates a logical Kotlin column type with its native MySQL type. */
+/** Associates a logical Kotlin column type with its native MySQL type.
+ *
+ * @property type logical Kotlin column type.
+ * @property mySqlType corresponding native MySQL type.
+ */
 data class MySqlTypeMapping<T : Any>(val type: ColumnType<T>, val mySqlType: MySqlType)
 
 /** An explicit set of MySQL-specific logical type mappings and transport codecs. */
 interface MySqlExtension {
+    /** Value associated with type mappings. */
     val typeMappings: List<MySqlTypeMapping<*>>
+
+    /** Value associated with type codecs. */
     val typeCodecs: List<SqlTypeCodec<*, *>>
 }
 
@@ -114,6 +164,7 @@ class MySqlTypeRegistry(extensions: Iterable<MySqlExtension> = emptyList()) {
         }
     }
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): MySqlType? = builtInType(type)
         ?: extensionMappings.firstOrNull { it.type === type }?.mySqlType
         ?: (type as? MappedColumnType<*, *>)?.underlyingType?.let(::typeOf)

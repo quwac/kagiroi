@@ -4,8 +4,10 @@ package dev.quwac.kagiroi.schema
 class ForeignKeyColumn<T> internal constructor(definition: ColumnDefinition) : WritableColumn<T>(definition) {
     internal lateinit var foreignKey: ForeignKeyBuilder
 
+    /** Sets the action applied to referencing rows when the target row is deleted. */
     fun onDelete(action: ForeignKeyAction): ForeignKeyColumn<T> = apply { foreignKey.setOnDelete(action) }
 
+    /** Sets the action applied to referencing rows when the target key is updated. */
     fun onUpdate(action: ForeignKeyAction): ForeignKeyColumn<T> = apply { foreignKey.setOnUpdate(action) }
 }
 

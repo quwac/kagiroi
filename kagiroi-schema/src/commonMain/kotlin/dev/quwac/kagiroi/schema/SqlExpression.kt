@@ -57,6 +57,9 @@ interface AggregateSqlExpression<T> : SqlExpression<T>
  * This is deliberately a value mapping, not a DDL declaration. A dialect chooses the physical
  * SQL CAST target from [type] and [storageType], while the mapping retains the decoder used when
  * the cast result is projected. Use [castTarget] for an application-specific mapped column type.
+ *
+ * @property type logical Kotlin value type returned by the cast.
+ * @property storageType physical storage mapping used to decode the result.
  */
 class SqlCastTarget<T> internal constructor(internal val result: SqlExpression<T>) {
     val type: ColumnType<*> get() = result.type
@@ -64,7 +67,11 @@ class SqlCastTarget<T> internal constructor(internal val result: SqlExpression<T
     val storageType: ColumnType<*> get() = result.storageType
 }
 
-/** A typed SQL `CAST` expression. The target SQL spelling belongs to the selected dialect. */
+/** A typed SQL `CAST` expression. The target SQL spelling belongs to the selected dialect.
+ *
+ * @property expression expression converted by the cast.
+ * @property target logical result mapping that selects the dialect's SQL target.
+ */
 class CastExpression<T> internal constructor(
     val expression: SqlExpression<*>,
     val target: SqlCastTarget<*>,
@@ -81,10 +88,18 @@ class CastExpression<T> internal constructor(
     override fun fromStorageValue(value: Any?): T = result.fromStorageValue(value)
 }
 
-/** One searched-CASE branch. Its result mapping is validated by the enclosing builder. */
+/** One searched-CASE branch. Its result mapping is validated by the enclosing builder.
+ *
+ * @property condition Boolean condition that selects this branch.
+ * @property result expression returned when [condition] is true.
+ */
 class CaseWhen internal constructor(val condition: BooleanExpression, val result: SqlExpression<*>)
 
-/** A typed searched SQL `CASE` expression. */
+/** A typed searched SQL `CASE` expression.
+ *
+ * @property branches ordered `WHEN` branches.
+ * @property elseResult expression returned when no branch condition is true.
+ */
 class CaseExpression<T> internal constructor(
     val branches: List<CaseWhen>,
     val elseResult: SqlExpression<*>,
@@ -177,6 +192,8 @@ fun <T> case(build: SearchedCaseBuilder<T>.() -> Unit): CaseExpression<T> =
 /**
  * A typed SQL literal. Renderers bind it as a parameter in DML and queries; DDL renderers may
  * render the value with their dialect-owned literal syntax.
+ *
+ * @property value literal value represented by this expression.
  */
 class SqlLiteral<T> internal constructor(val value: T, private val result: SqlExpression<T>) : SqlExpression<T> {
     override val referencedColumns: List<Column<*>> = emptyList()
@@ -218,87 +235,127 @@ fun literal(value: Double): SqlLiteral<Double> = SqlLiteral(value, doubleExpress
 
 /** Built-in function kinds. Function names remain dialect rendering decisions. */
 sealed interface SqlFunction {
+    /** Converts a string expression to lowercase. */
     data object Lower : SqlFunction
 
+    /** Converts a string expression to uppercase. */
     data object Upper : SqlFunction
 
+    /** Returns the length of a string expression. */
     data object Length : SqlFunction
 
+    /** Removes leading and trailing whitespace from a string expression. */
     data object Trim : SqlFunction
 
+    /** Removes leading whitespace from a string expression. */
     data object LeftTrim : SqlFunction
 
+    /** Removes trailing whitespace from a string expression. */
     data object RightTrim : SqlFunction
 
+    /** Returns a substring using the arguments defined by the dialect. */
     data object Substring : SqlFunction
 
+    /** Replaces matching text in a string expression. */
     data object Replace : SqlFunction
 
+    /** Concatenates string expressions. */
     data object Concat : SqlFunction
 
+    /** Returns the first non-null expression. */
     data object Coalesce : SqlFunction
 
+    /** Returns `NULL` when its two arguments are equal. */
     data object NullIf : SqlFunction
 
+    /** Returns the absolute value of a numeric expression. */
     data object Abs : SqlFunction
 
+    /** Rounds a numeric expression. */
     data object Round : SqlFunction
 
+    /** Returns the floor of a numeric expression. */
     data object Floor : SqlFunction
 
+    /** Returns the ceiling of a numeric expression. */
     data object Ceiling : SqlFunction
 
+    /** Returns the square root of a numeric expression. */
     data object SquareRoot : SqlFunction
 
+    /** Raises one numeric expression to the power of another. */
     data object Power : SqlFunction
 
+    /** Returns the current SQL date. */
     data object CurrentDate : SqlFunction
 
+    /** Returns the current SQL time. */
     data object CurrentTime : SqlFunction
 
+    /** Returns the current SQL timestamp. */
     data object CurrentTimestamp : SqlFunction
 
+    /** Extracts the year field from a temporal expression. */
     data object Year : SqlFunction
 
+    /** Extracts the month field from a temporal expression. */
     data object Month : SqlFunction
 
+    /** Extracts the day field from a temporal expression. */
     data object Day : SqlFunction
 
+    /** Extracts the hour field from a temporal expression. */
     data object Hour : SqlFunction
 
+    /** Extracts the minute field from a temporal expression. */
     data object Minute : SqlFunction
 
+    /** Extracts the second field from a temporal expression. */
     data object Second : SqlFunction
 
+    /** Counts rows or non-null argument values. */
     data object Count : SqlFunction
 
+    /** Returns the sum of non-null argument values. */
     data object Sum : SqlFunction
 
+    /** Returns the average of non-null argument values. */
     data object Average : SqlFunction
 
+    /** Returns the minimum argument value. */
     data object Minimum : SqlFunction
 
+    /** Returns the maximum argument value. */
     data object Maximum : SqlFunction
 
     /** Distinguishes a source NULL from a NULL synthesized by a grouping extension. */
     data object Grouping : SqlFunction
 
+    /** Returns a row's number in the ordered partition. */
     data object RowNumber : SqlFunction
 
+    /** Returns the rank of a row in the ordered partition. */
     data object Rank : SqlFunction
 
+    /** Returns the rank without gaps between peer groups. */
     data object DenseRank : SqlFunction
 
+    /** Returns the relative rank of a row as a fraction. */
     data object PercentRank : SqlFunction
 
+    /** Returns the cumulative distribution of a row in the partition. */
     data object CumeDist : SqlFunction
 
+    /** Returns an argument value from a preceding row. */
     data object Lag : SqlFunction
 
+    /** Returns an argument value from a following row. */
     data object Lead : SqlFunction
 
+    /** Returns the first value in the current window frame. */
     data object FirstValue : SqlFunction
 
+    /** Returns the last value in the current window frame. */
     data object LastValue : SqlFunction
 
     /** Assigns the current row to one of a positive number of ordered partition buckets. */
@@ -307,7 +364,10 @@ sealed interface SqlFunction {
     /** Returns a value at one-based position in the current window frame. */
     data object NthValue : SqlFunction
 
-    /** A deliberately unsafe, identifier-validated function name for a vendor extension. */
+    /** A custom SQL function name validated as a simple identifier.
+     *
+     * @property name identifier used for the function call.
+     */
     class Unsafe internal constructor(val name: String) : SqlFunction
 }
 
@@ -317,13 +377,21 @@ sealed interface SqlFunction {
  * A missing value keeps the database default semantics distinct from an explicit
  * [RespectNulls]. Dialects decide which function-and-option pairs they support; this model never
  * emulates either option by rewriting a query.
+ *
+ * @property sql SQL null-treatment clause.
  */
 enum class WindowNullTreatment(val sql: String) {
+    /** Use the database's treatment of null values in this function. */
     RespectNulls("RESPECT NULLS"),
+
+    /** Ignore null values when evaluating this function. */
     IgnoreNulls("IGNORE NULLS"),
 }
 
-/** A typed function-call AST node. Its arguments are expressions, never SQL fragments. */
+/** A typed function-call AST node. Its arguments are expressions, never SQL fragments.
+ *
+ * @property function function kind represented by the node.
+ */
 open class SqlFunctionExpression<T> constructor(
     val function: SqlFunction,
     arguments: List<SqlExpression<*>>,
@@ -342,7 +410,10 @@ open class SqlFunctionExpression<T> constructor(
     override fun fromStorageValue(value: Any?): T = result.fromStorageValue(value)
 }
 
-/** An ordinary aggregate call. It becomes a window aggregate only after `.over { ... }`. */
+/** An ordinary aggregate call. It becomes a window aggregate only after `.over { ... }`.
+ *
+ * @property distinct whether duplicate input values are removed before aggregation.
+ */
 class AggregateFunctionExpression<T> internal constructor(
     function: SqlFunction,
     arguments: List<SqlExpression<*>>,
@@ -442,7 +513,11 @@ class GeneratedColumnFunctionExpression<T> internal constructor(
 ) : SqlFunctionExpression<T>(function, arguments, result, isNullable),
     GeneratedColumnExpression<T>
 
-/** A typed projection handle. Only an alias is stable for expression result access. */
+/** A typed projection handle. Only an alias is stable for expression result access.
+ *
+ * @property expression projected expression.
+ * @property name stable alias used to retrieve the result.
+ */
 class SqlExpressionAlias<T> internal constructor(val expression: SqlExpression<T>, val name: String) :
     SqlExpression<T> {
     init {
@@ -468,6 +543,8 @@ fun <T> SqlExpression<T>.alias(name: String): SqlExpressionAlias<T> = SqlExpress
  * This keeps the underlying SQL expression and driver codec unchanged while making an explicitly
  * nullable result handle available. It is used when SQL itself can synthesize a NULL, including
  * an outer join and a super-aggregate row from advanced grouping.
+ *
+ * @property expression expression exposed with nullable result type.
  */
 class NullableSqlExpression<T> internal constructor(val expression: SqlExpression<T>) : SqlExpression<T?> {
     override val referencedColumns: List<Column<*>> get() = expression.referencedColumns
@@ -850,36 +927,43 @@ fun sum(expression: SqlExpression<Byte>): AggregateFunctionExpression<Long?> = S
     expression,
 )
 
+/** Returns the nullable sum of signed byte input as `Long`. */
 @JsName("sumNullableByte")
 fun sum(expression: SqlExpression<Byte?>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the sum of signed short input as `Long`. */
 @JsName("sumShort")
 fun sum(expression: SqlExpression<Short>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the nullable sum of signed short input as `Long`. */
 @JsName("sumNullableShort")
 fun sum(expression: SqlExpression<Short?>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the sum of integer input as `Long`. */
 @JsName("sumInt")
 fun sum(expression: SqlExpression<Int>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the nullable sum of integer input as `Long`. */
 @JsName("sumNullableInt")
 fun sum(expression: SqlExpression<Int?>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the sum of long input as nullable `Long`. */
 @JsName("sumLong")
 fun sum(expression: SqlExpression<Long>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
 )
 
+/** Returns the nullable sum of nullable long input. */
 @JsName("sumNullableLong")
 fun sum(expression: SqlExpression<Long?>): AggregateFunctionExpression<Long?> = StandardNumericAggregates.sumIntegral(
     expression,
@@ -891,18 +975,21 @@ fun sum(expression: SqlExpression<Float>): AggregateFunctionExpression<Double?> 
     expression,
 )
 
+/** Returns the nullable sum of floating-point input as `Double`. */
 @JsName("sumNullableFloat")
 fun sum(expression: SqlExpression<Float?>): AggregateFunctionExpression<Double?> =
     StandardNumericAggregates.sumFloating(
         expression,
     )
 
+/** Returns the sum of double input. */
 @JsName("sumDouble")
 fun sum(expression: SqlExpression<Double>): AggregateFunctionExpression<Double?> =
     StandardNumericAggregates.sumFloating(
         expression,
     )
 
+/** Returns the nullable sum of nullable double input. */
 @JsName("sumNullableDouble")
 fun sum(expression: SqlExpression<Double?>): AggregateFunctionExpression<Double?> =
     StandardNumericAggregates.sumFloating(
@@ -915,56 +1002,67 @@ fun avg(expression: SqlExpression<Byte>): AggregateFunctionExpression<Double?> =
     expression,
 )
 
+/** Returns the average of nullable byte input as nullable `Double`. */
 @JsName("avgNullableByte")
 fun avg(expression: SqlExpression<Byte?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of short input as nullable `Double`. */
 @JsName("avgShort")
 fun avg(expression: SqlExpression<Short>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of nullable short input as nullable `Double`. */
 @JsName("avgNullableShort")
 fun avg(expression: SqlExpression<Short?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of integer input as nullable `Double`. */
 @JsName("avgInt")
 fun avg(expression: SqlExpression<Int>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of nullable integer input as nullable `Double`. */
 @JsName("avgNullableInt")
 fun avg(expression: SqlExpression<Int?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of long input as nullable `Double`. */
 @JsName("avgLong")
 fun avg(expression: SqlExpression<Long>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of nullable long input as nullable `Double`. */
 @JsName("avgNullableLong")
 fun avg(expression: SqlExpression<Long?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of floating-point input as nullable `Double`. */
 @JsName("avgFloat")
 fun avg(expression: SqlExpression<Float>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of nullable floating-point input as nullable `Double`. */
 @JsName("avgNullableFloat")
 fun avg(expression: SqlExpression<Float?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of double input as nullable `Double`. */
 @JsName("avgDouble")
 fun avg(expression: SqlExpression<Double>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
 )
 
+/** Returns the average of nullable double input as nullable `Double`. */
 @JsName("avgNullableDouble")
 fun avg(expression: SqlExpression<Double?>): AggregateFunctionExpression<Double?> = StandardNumericAggregates.average(
     expression,
@@ -1325,79 +1423,97 @@ fun <T : Any> SearchedCaseBuilder<T?>.elseValue(result: SqlExpression<T>) {
     elseValueCompatible(result)
 }
 
+/** Adds a string literal as this CASE branch's result. */
 @JsName("caseStringWhenThen")
 fun SearchedCaseBuilder<String>.whenThen(condition: BooleanExpression, result: String) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a string literal as this CASE expression's ELSE result. */
 @JsName("caseStringElseValue")
 fun SearchedCaseBuilder<String>.elseValue(result: String) = elseValue(literal(result))
 
+/** Adds a non-null string literal to a nullable CASE branch. */
 @JsName("caseNullableStringWhenThen")
 fun SearchedCaseBuilder<String?>.whenThen(condition: BooleanExpression, result: String) =
     whenThenCompatible(condition, literal(result))
 
+/** Uses a non-null string literal as the ELSE result of a nullable CASE. */
 @JsName("caseNullableStringElseValue")
 fun SearchedCaseBuilder<String?>.elseValue(result: String) = elseValueCompatible(literal(result))
 
+/** Adds a Boolean literal as this CASE branch's result. */
 @JsName("caseBooleanWhenThen")
 fun SearchedCaseBuilder<Boolean>.whenThen(condition: BooleanExpression, result: Boolean) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Boolean literal as this CASE expression's ELSE result. */
 @JsName("caseBooleanElseValue")
 fun SearchedCaseBuilder<Boolean>.elseValue(result: Boolean) = elseValue(literal(result))
 
+/** Adds a Byte literal as this CASE branch's result. */
 @JsName("caseByteWhenThen")
 fun SearchedCaseBuilder<Byte>.whenThen(condition: BooleanExpression, result: Byte) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Byte literal as this CASE expression's ELSE result. */
 @JsName("caseByteElseValue")
 fun SearchedCaseBuilder<Byte>.elseValue(result: Byte) = elseValue(literal(result))
 
+/** Adds a Short literal as this CASE branch's result. */
 @JsName("caseShortWhenThen")
 fun SearchedCaseBuilder<Short>.whenThen(condition: BooleanExpression, result: Short) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Short literal as this CASE expression's ELSE result. */
 @JsName("caseShortElseValue")
 fun SearchedCaseBuilder<Short>.elseValue(result: Short) = elseValue(literal(result))
 
+/** Adds an Int literal as this CASE branch's result. */
 @JsName("caseIntWhenThen")
 fun SearchedCaseBuilder<Int>.whenThen(condition: BooleanExpression, result: Int) = whenThen(condition, literal(result))
 
+/** Uses an Int literal as this CASE expression's ELSE result. */
 @JsName("caseIntElseValue")
 fun SearchedCaseBuilder<Int>.elseValue(result: Int) = elseValue(literal(result))
 
+/** Adds a Long literal as this CASE branch's result. */
 @JsName("caseLongWhenThen")
 fun SearchedCaseBuilder<Long>.whenThen(condition: BooleanExpression, result: Long) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Long literal as this CASE expression's ELSE result. */
 @JsName("caseLongElseValue")
 fun SearchedCaseBuilder<Long>.elseValue(result: Long) = elseValue(literal(result))
 
+/** Adds a Float literal as this CASE branch's result. */
 @JsName("caseFloatWhenThen")
 fun SearchedCaseBuilder<Float>.whenThen(condition: BooleanExpression, result: Float) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Float literal as this CASE expression's ELSE result. */
 @JsName("caseFloatElseValue")
 fun SearchedCaseBuilder<Float>.elseValue(result: Float) = elseValue(literal(result))
 
+/** Adds a Double literal as this CASE branch's result. */
 @JsName("caseDoubleWhenThen")
 fun SearchedCaseBuilder<Double>.whenThen(condition: BooleanExpression, result: Double) = whenThen(
     condition,
     literal(result),
 )
 
+/** Uses a Double literal as this CASE expression's ELSE result. */
 @JsName("caseDoubleElseValue")
 fun SearchedCaseBuilder<Double>.elseValue(result: Double) = elseValue(literal(result))
 

@@ -35,36 +35,86 @@ import kotlin.uuid.Uuid
 
 /** Oracle Database 23ai native types used by the Oracle dialect and execution adapter. */
 enum class OracleType(internal val sqlName: String) {
+    /** Value associated with varchar2. */
     VARCHAR2("VARCHAR2(4000 CHAR)"),
+
+    /** Value associated with nvarchar2. */
     NVARCHAR2("NVARCHAR2(2000)"),
+
+    /** Value associated with char. */
     CHAR("CHAR(1 CHAR)"),
+
+    /** Value associated with nchar. */
     NCHAR("NCHAR(1)"),
+
+    /** Value associated with clob. */
     CLOB("CLOB"),
+
+    /** Value associated with nclob. */
     NCLOB("NCLOB"),
+
+    /** Value associated with boolean. */
     BOOLEAN("BOOLEAN"),
+
+    /** Value associated with number 3. */
     NUMBER_3("NUMBER(3,0)"),
+
+    /** Value associated with number 5. */
     NUMBER_5("NUMBER(5,0)"),
+
+    /** Value associated with number 10. */
     NUMBER_10("NUMBER(10,0)"),
+
+    /** Value associated with number 19. */
     NUMBER_19("NUMBER(19,0)"),
+
+    /** Value associated with number 20. */
     NUMBER_20("NUMBER(20,0)"),
+
+    /** Value associated with number. */
     NUMBER("NUMBER"),
+
+    /** Value associated with binary float. */
     BINARY_FLOAT("BINARY_FLOAT"),
+
+    /** Value associated with binary double. */
     BINARY_DOUBLE("BINARY_DOUBLE"),
+
+    /** Value associated with raw. */
     RAW("RAW(2000)"),
+
+    /** Value associated with blob. */
     BLOB("BLOB"),
+
+    /** Value associated with raw uuid. */
     RAW_UUID("RAW(16)"),
+
+    /** Value associated with date. */
     DATE("DATE"),
+
+    /** Value associated with timestamp. */
     TIMESTAMP("TIMESTAMP(9)"),
+
+    /** Value associated with timestamp with time zone. */
     TIMESTAMP_WITH_TIME_ZONE("TIMESTAMP(9) WITH TIME ZONE"),
+
+    /** Value associated with timestamp with local time zone. */
     TIMESTAMP_WITH_LOCAL_TIME_ZONE("TIMESTAMP(9) WITH LOCAL TIME ZONE"),
 }
 
-/** An explicit mapping from an application type to an Oracle physical type. */
+/** An explicit mapping from an application type to an Oracle physical type.
+ *
+ * @property type logical Kotlin column type.
+ * @property oracleType Oracle physical type used to store the value.
+ */
 data class OracleTypeMapping<T : Any>(val type: ColumnType<T>, val oracleType: OracleType)
 
 /** A set of optional Oracle type and scalar-codec extensions. */
 interface OracleExtension {
+    /** Value associated with type mappings. */
     val typeMappings: List<OracleTypeMapping<*>>
+
+    /** Value associated with type codecs. */
     val typeCodecs: List<SqlTypeCodec<*, *>>
 }
 
@@ -99,20 +149,49 @@ class OracleColumnType<T : Any, S : Any> internal constructor(
 
 /** Oracle Database 23ai storage declarations. */
 object OracleTypes {
+    /** Value associated with boolean. */
     val boolean = scalar("Oracle BOOLEAN", BooleanColumnType, OracleType.BOOLEAN)
+
+    /** Value associated with number3. */
     val number3 = scalar("Oracle NUMBER(3,0)", ByteColumnType, OracleType.NUMBER_3)
+
+    /** Value associated with number5. */
     val number5 = scalar("Oracle NUMBER(5,0)", ShortColumnType, OracleType.NUMBER_5)
+
+    /** Value associated with number10. */
     val number10 = scalar("Oracle NUMBER(10,0)", IntColumnType, OracleType.NUMBER_10)
+
+    /** Value associated with number19. */
     val number19 = scalar("Oracle NUMBER(19,0)", LongColumnType, OracleType.NUMBER_19)
+
+    /** Value associated with number20. */
     val number20 = scalar("Oracle NUMBER(20,0)", ULongColumnType, OracleType.NUMBER_20)
+
+    /** Value associated with binary float. */
     val binaryFloat = scalar("Oracle BINARY_FLOAT", FloatColumnType, OracleType.BINARY_FLOAT)
+
+    /** Value associated with binary double. */
     val binaryDouble = scalar("Oracle BINARY_DOUBLE", DoubleColumnType, OracleType.BINARY_DOUBLE)
+
+    /** Value associated with varchar2. */
     val varchar2 = scalar("Oracle VARCHAR2(4000 CHAR)", StringColumnType, OracleType.VARCHAR2)
+
+    /** Value associated with n varchar2. */
     val nVarchar2 = scalar("Oracle NVARCHAR2(2000)", StringColumnType, OracleType.NVARCHAR2)
+
+    /** Value associated with clob. */
     val clob = scalar("Oracle CLOB", StringColumnType, OracleType.CLOB)
+
+    /** Value associated with n clob. */
     val nClob = scalar("Oracle NCLOB", StringColumnType, OracleType.NCLOB)
+
+    /** Value associated with raw. */
     val raw = scalar("Oracle RAW(2000)", ByteArrayColumnType, OracleType.RAW)
+
+    /** Value associated with blob. */
     val blob = scalar("Oracle BLOB", ByteArrayColumnType, OracleType.BLOB)
+
+    /** Value associated with raw uuid. */
     val rawUuid = OracleColumnType(
         name = "Oracle RAW(16) UUID",
         storageType = ByteArrayColumnType,
@@ -120,38 +199,52 @@ object OracleTypes {
         oracleType = OracleType.RAW_UUID,
         sqlDeclaration = OracleType.RAW_UUID.sqlName,
     )
+
+    /** Value associated with date. */
     val date = scalar("Oracle DATE", StringColumnType, OracleType.DATE)
+
+    /** Value associated with timestamp. */
     val timestamp = scalar("Oracle TIMESTAMP(9)", StringColumnType, OracleType.TIMESTAMP)
+
+    /** Value associated with timestamp with time zone. */
     val timestampWithTimeZone = scalar(
         "Oracle TIMESTAMP(9) WITH TIME ZONE",
         StringColumnType,
         OracleType.TIMESTAMP_WITH_TIME_ZONE,
     )
+
+    /** Value associated with timestamp with local time zone. */
     val timestampWithLocalTimeZone = scalar(
         "Oracle TIMESTAMP(9) WITH LOCAL TIME ZONE",
         StringColumnType,
         OracleType.TIMESTAMP_WITH_LOCAL_TIME_ZONE,
     )
 
+    /** Provides the varchar2 result. */
     fun varchar2(maxLength: Int): OracleColumnType<String, String> = text(
         "VARCHAR2(${varchar2Length(maxLength)} CHAR)",
         OracleType.VARCHAR2,
     )
 
+    /** Provides the n varchar2 result. */
     fun nVarchar2(maxLength: Int): OracleColumnType<String, String> = text(
         "NVARCHAR2(${nVarchar2Length(maxLength)})",
         OracleType.NVARCHAR2,
     )
 
+    /** Provides the char result. */
     fun char(length: Int): OracleColumnType<String, String> = text("CHAR(${charLength(length)} CHAR)", OracleType.CHAR)
 
+    /** Provides the n char result. */
     fun nChar(length: Int): OracleColumnType<String, String> = text("NCHAR(${nCharLength(length)})", OracleType.NCHAR)
 
+    /** Provides the raw result. */
     fun raw(maxLength: Int): OracleColumnType<ByteArray, ByteArray> = bytes(
         "RAW(${rawLength(maxLength)})",
         OracleType.RAW,
     )
 
+    /** Provides the number result. */
     fun number(precision: Int, scale: Int): OracleColumnType<String, String> {
         require(precision in 1..ORACLE_MAX_NUMBER_PRECISION) {
             "Oracle NUMBER precision must be between 1 and $ORACLE_MAX_NUMBER_PRECISION: $precision"
@@ -162,6 +255,7 @@ object OracleTypes {
         return text("NUMBER($precision,$scale)", OracleType.NUMBER)
     }
 
+    /** Provides the number result. */
     fun <T : Any> number(precision: Int, scale: Int, mapping: ColumnMapping<T, String>): OracleColumnType<T, String> =
         OracleColumnType(
             name = "Oracle ${number(precision, scale).sqlDeclaration}",
@@ -236,6 +330,7 @@ class OracleTypeRegistry(extensions: Iterable<OracleExtension> = emptyList()) {
         }
     }
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): OracleType? = when (type) {
         is OracleColumnType<*, *> -> type.oracleType
         is MappedColumnType<*, *> -> typeOf(type.underlyingType)

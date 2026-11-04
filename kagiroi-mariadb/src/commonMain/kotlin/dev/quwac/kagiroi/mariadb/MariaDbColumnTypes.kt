@@ -37,49 +37,111 @@ class MariaDbColumnType<T : Any, S : Any> internal constructor(
  */
 @Suppress("TooManyFunctions") // Exposes the public MariaDB type catalog without hiding it behind raw SQL.
 object MariaDbTypes {
+    /** Value associated with boolean. */
     val boolean: MySqlColumnType<Boolean, Boolean> get() = MySqlTypes.boolean
+
+    /** Value associated with tiny int. */
     val tinyInt: MySqlColumnType<Byte, Byte> get() = MySqlTypes.tinyInt
+
+    /** Value associated with tiny int unsigned. */
     val tinyIntUnsigned: MySqlColumnType<UByte, UByte> get() = MySqlTypes.tinyIntUnsigned
+
+    /** Value associated with small int. */
     val smallInt: MySqlColumnType<Short, Short> get() = MySqlTypes.smallInt
+
+    /** Value associated with small int unsigned. */
     val smallIntUnsigned: MySqlColumnType<UShort, UShort> get() = MySqlTypes.smallIntUnsigned
+
+    /** Value associated with medium int. */
     val mediumInt: MySqlColumnType<Int, Int> get() = MySqlTypes.mediumInt
+
+    /** Value associated with medium int unsigned. */
     val mediumIntUnsigned: MySqlColumnType<UInt, UInt> get() = MySqlTypes.mediumIntUnsigned
+
+    /** Value associated with integer. */
     val integer: MySqlColumnType<Int, Int> get() = MySqlTypes.integer
+
+    /** Value associated with integer unsigned. */
     val integerUnsigned: MySqlColumnType<UInt, UInt> get() = MySqlTypes.integerUnsigned
+
+    /** Value associated with big int. */
     val bigInt: MySqlColumnType<Long, Long> get() = MySqlTypes.bigInt
+
+    /** Value associated with big int unsigned. */
     val bigIntUnsigned: MySqlColumnType<ULong, ULong> get() = MySqlTypes.bigIntUnsigned
 
     /** MariaDB preserves the MySQL-compatible `SERIAL` shorthand without making it a generic identity API. */
     val serial: MySqlColumnType<ULong, ULong> get() = MySqlTypes.serial
+
+    /** Value associated with float. */
     val float: MySqlColumnType<Float, Float> get() = MySqlTypes.float
+
+    /** Value associated with double. */
     val double: MySqlColumnType<Double, Double> get() = MySqlTypes.double
+
+    /** Value associated with year. */
     val year: MySqlColumnType<Int, Int> get() = MySqlTypes.year
+
+    /** Value associated with tiny text. */
     val tinyText: MySqlColumnType<String, String> get() = MySqlTypes.tinyText
+
+    /** Value associated with text. */
     val text: MySqlColumnType<String, String> get() = MySqlTypes.text
+
+    /** Value associated with medium text. */
     val mediumText: MySqlColumnType<String, String> get() = MySqlTypes.mediumText
+
+    /** Value associated with long text. */
     val longText: MySqlColumnType<String, String> get() = MySqlTypes.longText
+
+    /** Value associated with tiny blob. */
     val tinyBlob: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.tinyBlob
+
+    /** Value associated with blob. */
     val blob: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.blob
+
+    /** Value associated with medium blob. */
     val mediumBlob: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.mediumBlob
+
+    /** Value associated with long blob. */
     val longBlob: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.longBlob
+
+    /** Value associated with geometry. */
     val geometry: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.geometry
+
+    /** Value associated with point. */
     val point: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.point
+
+    /** Value associated with line string. */
     val lineString: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.lineString
+
+    /** Value associated with polygon. */
     val polygon: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.polygon
+
+    /** Value associated with multi point. */
     val multiPoint: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.multiPoint
+
+    /** Value associated with multi line string. */
     val multiLineString: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.multiLineString
+
+    /** Value associated with multi polygon. */
     val multiPolygon: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.multiPolygon
+
+    /** Value associated with geometry collection. */
     val geometryCollection: MySqlColumnType<ByteArray, ByteArray> get() = MySqlTypes.geometryCollection
 
     /** A MariaDB-compatible `BINARY(16)` UUID using RFC 4122 network-byte-order bytes. */
     val binaryUuid: MySqlColumnType<Uuid, ByteArray> get() = MySqlTypes.binaryUuid
 
+    /** Value associated with uuid. */
     val uuid: MariaDbColumnType<Uuid, String> = MariaDbColumnType(
         name = "MariaDB UUID",
         storageType = StringColumnType,
         mapping = columnMapping(fromStorage = Uuid::parse, toStorage = Uuid::toString),
         sqlDeclaration = "UUID",
     )
+
+    /** Value associated with char uuid. */
     val charUuid: MariaDbColumnType<Uuid, String> = MariaDbColumnType(
         name = "MariaDB CHAR(36) UUID",
         storageType = StringColumnType,
@@ -102,8 +164,10 @@ object MariaDbTypes {
     /** MariaDB 12.3+ XML storage is transported as text; it does not validate XML content. */
     val xmlType: MariaDbColumnType<String, String> = text("XMLTYPE")
 
+    /** Provides the bit result. */
     fun bit(length: Int): MySqlColumnType<ByteArray, ByteArray> = MySqlTypes.bit(length)
 
+    /** Provides the decimal result. */
     fun decimal(precision: Int, scale: Int): MariaDbColumnType<String, String> {
         require(precision in 1..MARIADB_MAX_DECIMAL_PRECISION) {
             "MariaDB DECIMAL precision must be between 1 and $MARIADB_MAX_DECIMAL_PRECISION: $precision"
@@ -137,6 +201,7 @@ object MariaDbTypes {
     /** `DATE` with an explicit application mapping over its shared textual transport. */
     fun <T : Any> date(mapping: ColumnMapping<T, String>): MySqlColumnType<T, String> = MySqlTypes.date(mapping)
 
+    /** Provides the time result. */
     fun time(fractionalSecondsPrecision: Int = 0): MySqlColumnType<String, String> =
         MySqlTypes.time(fractionalSecondsPrecision)
 
@@ -146,6 +211,7 @@ object MariaDbTypes {
         mapping: ColumnMapping<T, String>,
     ): MySqlColumnType<T, String> = MySqlTypes.time(fractionalSecondsPrecision, mapping)
 
+    /** Provides the date time result. */
     fun dateTime(fractionalSecondsPrecision: Int = 0): MySqlColumnType<String, String> =
         MySqlTypes.dateTime(fractionalSecondsPrecision)
 
@@ -159,22 +225,30 @@ object MariaDbTypes {
     fun timestamp(fractionalSecondsPrecision: Int = 0): MySqlColumnType<String, String> =
         MySqlTypes.timestamp(fractionalSecondsPrecision)
 
+    /** Provides the char result. */
     fun char(length: Int): MySqlColumnType<String, String> = MySqlTypes.char(length)
 
+    /** Provides the varchar result. */
     fun varchar(maxLength: Int): MySqlColumnType<String, String> = MySqlTypes.varchar(maxLength)
 
+    /** Provides the binary result. */
     fun binary(length: Int): MySqlColumnType<ByteArray, ByteArray> = MySqlTypes.binary(length)
 
+    /** Provides the varbinary result. */
     fun varbinary(maxLength: Int): MySqlColumnType<ByteArray, ByteArray> = MySqlTypes.varbinary(maxLength)
 
+    /** Provides the enum result. */
     fun enum(first: String, vararg remaining: String): MySqlColumnType<String, String> =
         MySqlTypes.enum(first, *remaining)
 
+    /** Provides the enum result. */
     fun enum(labels: NonEmptyList<String>): MySqlColumnType<String, String> = MySqlTypes.enum(labels)
 
+    /** Provides the set result. */
     fun set(first: String, vararg remaining: String): MySqlColumnType<String, String> =
         MySqlTypes.set(first, *remaining)
 
+    /** Provides the set result. */
     fun set(labels: NonEmptyList<String>): MySqlColumnType<String, String> = MySqlTypes.set(labels)
 
     /**

@@ -74,9 +74,16 @@ enum class NodeMySqlTlsMode {
 
 /** TLS inputs kept independent of Node.js TLS object types. */
 class NodeMySqlTlsConfiguration internal constructor() {
+    /** Value associated with mode. */
     var mode: NodeMySqlTlsMode = NodeMySqlTlsMode.VERIFY_FULL
+
+    /** Value associated with certificate authority. */
     var certificateAuthority: String? = null
+
+    /** Value associated with client certificate. */
     var clientCertificate: String? = null
+
+    /** Value associated with client private key. */
     var clientPrivateKey: String? = null
 
     internal fun snapshot(): NodeMySqlTlsSettings {
@@ -101,12 +108,20 @@ class NodeMySqlTlsConfiguration internal constructor() {
 
 /** Connection-pool settings implemented by mysql2 plus a Kagiroi acquisition deadline. */
 class NodeMySqlPoolConfiguration internal constructor() {
+    /** Value associated with max connections. */
     var maxConnections: Int = DEFAULT_MAX_CONNECTIONS
+
+    /** Value associated with connection timeout. */
     var connectionTimeout: Duration = DEFAULT_CONNECTION_TIMEOUT
+
+    /** Value associated with acquisition timeout. */
     var acquisitionTimeout: Duration = Duration.ZERO
+
+    /** Value associated with idle timeout. */
     var idleTimeout: Duration = DEFAULT_IDLE_TIMEOUT
     private var configuredMaxIdleConnections: Int? = null
 
+    /** Value associated with max idle connections. */
     var maxIdleConnections: Int
         get() = configuredMaxIdleConnections ?: maxConnections
         set(value) {
@@ -129,10 +144,19 @@ class NodeMySqlPoolConfiguration internal constructor() {
 
 /** Direct MySQL settings without exposing mysql2 pools, connections, or Node.js TLS values. */
 class NodeMySqlDatabaseConfiguration internal constructor(private val connectionUrl: String?) {
+    /** Value associated with host. */
     var host: String? = null
+
+    /** Value associated with port. */
     var port: Int = DEFAULT_MYSQL_PORT
+
+    /** Value associated with database. */
     var database: String? = null
+
+    /** Value associated with user. */
     var user: String? = null
+
+    /** Value associated with password. */
     var password: String? = null
 
     private var poolConfiguration = NodeMySqlPoolConfiguration()
@@ -140,14 +164,17 @@ class NodeMySqlDatabaseConfiguration internal constructor(private val connection
     private val extensions = mutableListOf<MySqlExtension>()
     private var configuredDialect: SqlDialect? = null
 
+    /** Provides the pool result. */
     fun pool(configure: NodeMySqlPoolConfiguration.() -> Unit) {
         poolConfiguration = NodeMySqlPoolConfiguration().apply(configure)
     }
 
+    /** Provides the tls result. */
     fun tls(configure: NodeMySqlTlsConfiguration.() -> Unit = {}) {
         tlsConfiguration = NodeMySqlTlsConfiguration().apply(configure)
     }
 
+    /** Provides the install result. */
     fun install(extension: MySqlExtension) {
         extensions += extension
     }

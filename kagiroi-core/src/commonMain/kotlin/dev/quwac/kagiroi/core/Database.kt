@@ -9,7 +9,10 @@ interface Database {
 /** An operation or feature exposed by a database implementation. */
 interface DatabaseCapability
 
-/** A typed identity key for a database capability. */
+/** A typed identity key for a database capability.
+ *
+ * @property name diagnostic name used when a capability is unavailable.
+ */
 class CapabilityKey<C : DatabaseCapability>(val name: String) {
     init {
         require(name.isNotBlank()) { "Capability name must not be blank" }

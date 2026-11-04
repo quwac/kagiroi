@@ -10,7 +10,9 @@ import kotlin.js.JsString
 import kotlin.js.unsafeCast
 import kotlin.test.Test
 
+/** Represents postgres compatibility integration test. */
 class PostgresCompatibilityIntegrationTest {
+    /** Provides the postgres driver contract result. */
     @Test
     fun postgresDriverContract() = runTest {
         val connectionString = postgresTestConnectionString() ?: return@runTest

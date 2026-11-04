@@ -9,7 +9,9 @@ import kotlin.js.JsString
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.seconds
 
+/** Represents node postgres compatibility integration test. */
 class NodePostgresCompatibilityIntegrationTest {
+    /** Provides the local postgres contract result. */
     @Test
     fun localPostgresContract() = runTest {
         val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest

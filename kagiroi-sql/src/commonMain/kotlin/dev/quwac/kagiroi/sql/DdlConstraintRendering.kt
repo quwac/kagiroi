@@ -67,6 +67,7 @@ fun renderTableConstraints(
     }
 }
 
+/** Renders a primary-key constraint using the dialect's identifier quoting. */
 fun renderPrimaryKeyConstraint(constraint: PrimaryKeyConstraint, quoteIdentifier: (String) -> String): String =
     buildString {
         constraint.name?.let { append("CONSTRAINT ").append(quoteIdentifier(it)).append(' ') }
@@ -75,6 +76,7 @@ fun renderPrimaryKeyConstraint(constraint: PrimaryKeyConstraint, quoteIdentifier
         append(')')
     }
 
+/** Renders a UNIQUE constraint and appends dialect-specific comment syntax. */
 fun renderUniqueConstraint(constraint: UniqueConstraint, quoteIdentifier: (String) -> String, comment: String): String =
     buildString {
         constraint.name?.let { append("CONSTRAINT ").append(quoteIdentifier(it)).append(' ') }
@@ -84,6 +86,7 @@ fun renderUniqueConstraint(constraint: UniqueConstraint, quoteIdentifier: (Strin
         append(comment)
     }
 
+/** Renders a foreign-key constraint with dialect-provided identifier and action syntax. */
 fun renderForeignKeyConstraint(
     constraint: ForeignKeyConstraint,
     quoteIdentifier: (String) -> String,
@@ -102,6 +105,7 @@ fun renderForeignKeyConstraint(
     constraint.onUpdate?.let { append(renderForeignKeyAction("UPDATE", it)) }
 }
 
+/** Renders a typed CHECK expression using dialect-provided literal and function syntax. */
 @Suppress("LongMethod")
 fun renderCheckConstraintExpression(
     expression: BooleanExpression,

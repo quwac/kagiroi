@@ -1,10 +1,19 @@
 package dev.quwac.kagiroi.schema
 
-/** A table-level primary-key definition in declaration order. */
+/** A table-level primary-key definition in declaration order.
+ *
+ * @property name optional constraint name.
+ * @property columns ordered primary-key columns.
+ */
 @ConsistentCopyVisibility
 data class PrimaryKeyConstraint internal constructor(val name: String?, val columns: List<Column<*>>)
 
-/** A table-level UNIQUE definition in declaration order. */
+/** A table-level UNIQUE definition in declaration order.
+ *
+ * @property name optional constraint name.
+ * @property columns ordered columns covered by the constraint.
+ * @property comment optional logical schema metadata for a named constraint.
+ */
 @ConsistentCopyVisibility
 data class UniqueConstraint internal constructor(
     val name: String?,
@@ -13,16 +22,35 @@ data class UniqueConstraint internal constructor(
     val comment: String?,
 )
 
-/** Referential actions intentionally limited to the portable supported subset. */
+/** Referential actions intentionally limited to the portable supported subset.
+ *
+ * @property sql SQL action token.
+ */
 enum class ForeignKeyAction(val sql: String) {
+    /** Delete or update referencing rows with the target row. */
     Cascade("CASCADE"),
+
+    /** Reject a delete or update that has referencing rows. */
     Restrict("RESTRICT"),
+
+    /** Apply the database's default no-action behavior. */
     NoAction("NO ACTION"),
+
+    /** Set referencing columns to SQL `NULL`. */
     SetNull("SET NULL"),
+
+    /** Set referencing columns to their declared defaults. */
     SetDefault("SET DEFAULT"),
 }
 
-/** A table-level foreign key, including its referenced columns and declared actions. */
+/** A table-level foreign key, including its referenced columns and declared actions.
+ *
+ * @property name optional constraint name.
+ * @property sourceColumns ordered columns in the referencing table.
+ * @property targetColumns corresponding columns in the referenced table.
+ * @property onDelete action applied when a target row is deleted.
+ * @property onUpdate action applied when referenced values are updated.
+ */
 @ConsistentCopyVisibility
 data class ForeignKeyConstraint internal constructor(
     val name: String?,
@@ -31,10 +59,15 @@ data class ForeignKeyConstraint internal constructor(
     val onDelete: ForeignKeyAction?,
     val onUpdate: ForeignKeyAction?,
 ) {
+    /** Table containing [targetColumns]. */
     val targetTable: Table get() = targetColumns.first().table
 }
 
-/** A named or database-named typed CHECK expression. */
+/** A named or database-named typed CHECK expression.
+ *
+ * @property name optional constraint name.
+ * @property expression Boolean expression enforced by the constraint.
+ */
 @ConsistentCopyVisibility
 data class CheckConstraint internal constructor(val name: String?, val expression: BooleanExpression)
 
@@ -134,14 +167,17 @@ class ForeignKeyBuilder1<T : Any> internal constructor(
     internal override var onUpdateAction: ForeignKeyAction? = null
     internal override var constraint: ForeignKeyConstraint? = null
 
+    /** Completes the relationship with the target column. */
     fun references(target: Column<out T?>): ForeignKeyBuilder1<T> {
         table.requireSchemaMutable()
         constraint = table.buildForeignKey(name, listOf(source), listOf(target), onDeleteAction, onUpdateAction)
         return this
     }
 
+    /** Sets the action applied when a referenced row is deleted. */
     fun onDelete(action: ForeignKeyAction): ForeignKeyBuilder1<T> = apply { setOnDelete(action) }
 
+    /** Sets the action applied when a referenced key is updated. */
     fun onUpdate(action: ForeignKeyAction): ForeignKeyBuilder1<T> = apply { setOnUpdate(action) }
 
     @Suppress("UNCHECKED_CAST") // The replacement is created from the same typed foreign-key column.
@@ -163,6 +199,7 @@ class ForeignKeyBuilder2<A : Any, B : Any> internal constructor(
     internal override var onUpdateAction: ForeignKeyAction? = null
     internal override var constraint: ForeignKeyConstraint? = null
 
+    /** Completes the relationship with the corresponding target columns. */
     fun references(firstTarget: Column<out A?>, secondTarget: Column<out B?>): ForeignKeyBuilder2<A, B> {
         table.requireSchemaMutable()
         constraint = table.buildForeignKey(
@@ -175,8 +212,10 @@ class ForeignKeyBuilder2<A : Any, B : Any> internal constructor(
         return this
     }
 
+    /** Sets the action applied when a referenced row is deleted. */
     fun onDelete(action: ForeignKeyAction): ForeignKeyBuilder2<A, B> = apply { setOnDelete(action) }
 
+    /** Sets the action applied when a referenced key is updated. */
     fun onUpdate(action: ForeignKeyAction): ForeignKeyBuilder2<A, B> = apply { setOnUpdate(action) }
 }
 
@@ -192,6 +231,7 @@ class ForeignKeyBuilder3<A : Any, B : Any, C : Any> internal constructor(
     internal override var onUpdateAction: ForeignKeyAction? = null
     internal override var constraint: ForeignKeyConstraint? = null
 
+    /** Completes the relationship with the corresponding target columns. */
     fun references(
         firstTarget: Column<out A?>,
         secondTarget: Column<out B?>,
@@ -208,8 +248,10 @@ class ForeignKeyBuilder3<A : Any, B : Any, C : Any> internal constructor(
         return this
     }
 
+    /** Sets the action applied when a referenced row is deleted. */
     fun onDelete(action: ForeignKeyAction): ForeignKeyBuilder3<A, B, C> = apply { setOnDelete(action) }
 
+    /** Sets the action applied when a referenced key is updated. */
     fun onUpdate(action: ForeignKeyAction): ForeignKeyBuilder3<A, B, C> = apply { setOnUpdate(action) }
 }
 

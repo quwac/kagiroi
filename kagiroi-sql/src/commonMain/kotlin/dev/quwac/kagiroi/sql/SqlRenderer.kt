@@ -34,9 +34,16 @@ private const val DEFAULT_WINDOW_NAVIGATION_OFFSET = 1
 
 /** The semantic kind of the statement which owns a lexical WITH scope. */
 enum class SqlStatementKind {
+    /** SELECT statement context. */
     Select,
+
+    /** INSERT statement context. */
     Insert,
+
+    /** UPDATE statement context. */
     Update,
+
+    /** DELETE statement context. */
     Delete,
 }
 
@@ -55,8 +62,10 @@ sealed interface SqlWithClausePlacement {
 /** Syntax choices required by the currently supported SQL subset. */
 @Suppress("TooManyFunctions") // One dialect contract intentionally owns all portable rendering decisions.
 interface SqlDialect {
+    /** Quotes one SQL identifier for this dialect. */
     fun quoteIdentifier(identifier: String): String
 
+    /** Returns the parameter marker at the one-based [position]. */
     fun parameterMarker(position: Int): String
 
     /** Renders one typed arithmetic operator after both numeric operands have been rendered. */
@@ -334,6 +343,7 @@ interface SqlDialect {
     fun renderCastTarget(target: SqlCastTarget<*>): String =
         throw UnsupportedCapability("cast-target:${target.type.name}")
 
+    /** Quotes [identifier] and its optional [namespace] separately. */
     fun quoteQualifiedIdentifier(namespace: String?, identifier: String): String = buildString {
         namespace?.let {
             append(quoteIdentifier(it))
@@ -342,6 +352,7 @@ interface SqlDialect {
         append(quoteIdentifier(identifier))
     }
 
+    /** Quotes a table name together with its optional schema. */
     fun quoteTable(table: Table): String = quoteQualifiedIdentifier(table.schemaName, table.tableName)
 
     /** Renders one source in a FROM tree. Derived sources can extend this without changing SELECT. */
@@ -398,14 +409,30 @@ interface SqlDialect {
     fun validateGroupingOrder(elements: List<GroupByElement>, order: List<Order<*>>) = Unit
 }
 
-/** Window syntax/features that have materially different availability between supported engines. */
+/** Window syntax/features that have materially different availability between supported engines.
+ *
+ * @property unsupportedCapability capability identifier used when rendering is unsupported.
+ */
 enum class SqlWindowCapability(val unsupportedCapability: String) {
+    /** Native `NTILE` window function. */
     Ntile("window-ntile"),
+
+    /** Native `NTH_VALUE` window function. */
     NthValue("window-nth-value"),
+
+    /** Native `PERCENT_RANK` window function. */
     PercentRank("window-percent-rank"),
+
+    /** Native `CUME_DIST` window function. */
     CumeDist("window-cume-dist"),
+
+    /** `GROUPS` window-frame unit. */
     GroupsFrame("window-groups-frame"),
+
+    /** Window-frame exclusion clauses. */
     FrameExclusion("window-frame-exclusion"),
+
+    /** Named `WINDOW` clause. */
     NamedWindow("named-window"),
 }
 
@@ -431,10 +458,13 @@ enum class SqlProposedInsertReferenceStyle {
  * vendor syntax choice, including proposed-row spelling and SQLite's parser workaround.
  */
 interface SqlInsertConflictDialect : SqlDialect {
+    /** Chooses how assignments reference the row proposed for insertion. */
     fun proposedInsertReferenceStyle(behavior: InsertConflictBehavior): SqlProposedInsertReferenceStyle
 
+    /** Whether INSERT SELECT requires a parser-disambiguating source clause before conflict syntax. */
     fun requiresInsertSelectConflictDisambiguation(behavior: InsertConflictBehavior): Boolean = false
 
+    /** Renders the typed conflict behavior and its assignment and predicate expressions. */
     fun renderInsertConflict(
         behavior: InsertConflictBehavior,
         renderAssignments: (List<WriteAssignment>) -> String,
@@ -444,11 +474,13 @@ interface SqlInsertConflictDialect : SqlDialect {
 
 /** A dialect that renders a typed DML row-image result clause. */
 interface SqlDmlOutputDialect : SqlDialect {
+    /** Renders a typed DML output clause. */
     fun renderDmlOutput(output: SqlDmlOutput): String
 }
 
 /** A dialect that renders a typed DML RETURNING INTO out-bind clause. */
 interface SqlDmlReturningIntoDialect : SqlDialect {
+    /** Renders a typed DML RETURNING INTO clause. */
     fun renderDmlReturningInto(returning: SqlDmlReturningInto): String
 }
 
@@ -469,11 +501,16 @@ object DoubleQuotedQuestionMarkDialect : SqlDialect {
 
 /** Placement-specific rendering of SELECT pagination without exposing a vendor clause in the query model. */
 interface SqlSelectPagination {
+    /** Parameter positions rendered immediately after SELECT. */
     val selectParameters: List<Int>
+
+    /** Parameter positions rendered after ORDER BY. */
     val trailingParameters: List<Int>
 
+    /** Renders pagination syntax placed after SELECT. */
     fun renderAfterSelect(markers: List<String>): String
 
+    /** Renders pagination syntax placed after ORDER BY. */
     fun renderAfterOrderBy(markers: List<String>): String
 }
 
@@ -490,11 +527,21 @@ private class LimitOffsetPagination(private val limit: Int?, private val offset:
     }
 }
 
+/** One bound value and the expression that supplies its storage mapping.
+ *
+ * @property value Kotlin value passed to the driver.
+ * @property expression optional typed expression used to select a codec.
+ */
 data class SqlParameter<T>(val value: T, val expression: SqlExpression<*>?) {
     /** Compatibility view for driver bindings that have a physical table-column mapping. */
     val column: Column<*>? get() = expression as? Column<*>
 }
 
+/** Rendered SQL text with ordered bound parameters.
+ *
+ * @property sql SQL statement containing parameter markers.
+ * @property parameters values in marker order.
+ */
 data class RenderedSql(val sql: String, val parameters: List<SqlParameter<*>>)
 
 /** Dialect capability for native REPLACE INTO statements. */
@@ -502,22 +549,28 @@ interface SqlReplaceDialect
 
 /** Renders a query model and keeps every runtime value separate from the SQL text. */
 class SqlRenderer(private val dialect: SqlDialect) {
+    /** Renders a row-producing query expression. */
     fun render(query: QueryExpression<*, *>): RenderedSql {
         val context = RenderContext(dialect)
         return RenderedSql(context.renderQuery(query), context.parameters.toList())
     }
 
+    /** Renders an INSERT statement. */
     fun <S : InsertQueryState.Renderable> render(query: InsertQuery<S>): RenderedSql =
         DmlOutputRenderer(dialect).render(query)
 
+    /** Renders a typed MERGE statement. */
     fun render(query: MergeQuery): RenderedSql = DmlOutputRenderer(dialect).render(query)
 
+    /** Renders an UPDATE statement. */
     fun <S : UpdateQueryState.Renderable> render(query: UpdateQuery<S>): RenderedSql =
         DmlOutputRenderer(dialect).render(query)
 
+    /** Renders a DELETE statement. */
     fun <S : DeleteQueryState.Renderable> render(query: DeleteQuery<S>): RenderedSql =
         DmlOutputRenderer(dialect).render(query)
 
+    /** Renders a typed DML RETURNING query. */
     fun render(query: ReturningQuery): RenderedSql {
         if (dialect !is SqlReturningDialect) throw UnsupportedCapability("returning")
         val rendered = when (query) {

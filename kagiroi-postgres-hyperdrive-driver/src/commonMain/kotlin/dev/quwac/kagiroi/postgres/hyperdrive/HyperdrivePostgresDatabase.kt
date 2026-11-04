@@ -299,6 +299,7 @@ class HyperdrivePostgresDatabase private constructor(
 class HyperdrivePostgresDatabaseConfiguration internal constructor() {
     private val extensions = mutableListOf<PostgresExtension>()
 
+    /** Provides the install result. */
     fun install(extension: PostgresExtension) {
         extensions += extension
     }

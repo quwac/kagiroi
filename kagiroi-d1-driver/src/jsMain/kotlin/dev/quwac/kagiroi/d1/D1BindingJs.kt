@@ -11,6 +11,7 @@ import kotlin.js.Promise
 /** The Cloudflare Workers D1 binding passed through an environment object. */
 external interface CloudflareD1Binding
 
+/** Provides the d1 database result. */
 fun D1Database(binding: CloudflareD1Binding, configure: D1DatabaseConfiguration.() -> Unit = {}): D1Database =
     D1Database.create(JsD1Endpoint(binding.asDynamic()), configure)
 

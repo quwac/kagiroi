@@ -3,7 +3,11 @@ package dev.quwac.kagiroi.sql
 import dev.quwac.kagiroi.schema.ColumnType
 import dev.quwac.kagiroi.schema.StorageMappedColumnType
 
-/** Explicitly maps one SQL column type to a scalar type understood by a database driver. */
+/** Explicitly maps one SQL column type to a scalar type understood by a database driver.
+ *
+ * @property type logical column type recognized by this codec.
+ * @property storageType driver-supported scalar type used for transport.
+ */
 class SqlTypeCodec<T : Any, S : Any>(
     val type: ColumnType<T>,
     val storageType: ColumnType<S>,
@@ -17,8 +21,17 @@ class SqlTypeCodec<T : Any, S : Any>(
     internal fun decodeValue(value: Any): Any = decode(value as S)
 }
 
+/** Encoded scalar and its physical column type.
+ *
+ * @property storageType type used by the driver to bind [value].
+ * @property value encoded scalar value.
+ */
 data class EncodedSqlValue(val storageType: ColumnType<*>, val value: Any)
 
+/** A decoded application value produced from a driver scalar.
+ *
+ * @property value decoded value.
+ */
 data class DecodedSqlValue(val value: Any)
 
 /** Immutable identity-based codec lookup used by SQL database drivers. */
@@ -36,15 +49,18 @@ class SqlTypeCodecRegistry(codecs: Iterable<SqlTypeCodec<*, *>>) {
         }
     }
 
+    /** Returns the scalar storage type used for [type], if a codec or mapping is registered. */
     fun storageType(type: ColumnType<*>): ColumnType<*>? = find(type)?.storageType
         ?: (type as? StorageMappedColumnType)?.storageType
 
+    /** Encodes [value] according to the registered codec for [type], when one exists. */
     fun encode(type: ColumnType<*>, value: Any): EncodedSqlValue? = find(type)?.let { codec ->
         EncodedSqlValue(codec.storageType, codec.encodeValue(value))
     } ?: (type as? StorageMappedColumnType)?.let { mapped ->
         EncodedSqlValue(mapped.storageType, mapped.encodeStorageValue(value))
     }
 
+    /** Decodes a driver [value] according to the registered codec for [type], when one exists. */
     fun decode(type: ColumnType<*>, value: Any): DecodedSqlValue? = find(type)?.let { codec ->
         DecodedSqlValue(codec.decodeValue(value))
     } ?: (type as? StorageMappedColumnType)?.let { mapped ->

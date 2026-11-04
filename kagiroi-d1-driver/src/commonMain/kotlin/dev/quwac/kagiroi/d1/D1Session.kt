@@ -11,17 +11,28 @@ import dev.quwac.kagiroi.sql.SqlRow
 import dev.quwac.kagiroi.sql.nonEmptyListOf
 import kotlinx.coroutines.flow.Flow
 
+/** Opaque D1 session bookmark used to continue a session.
+ *
+ * @property value platform bookmark token.
+ */
 data class D1Bookmark(val value: String) {
     init {
         require(value.isNotBlank()) { "D1 bookmark must not be blank" }
     }
 }
 
+/** Represents d1 session start. */
 sealed interface D1SessionStart {
+    /** Represents unconstrained. */
     data object Unconstrained : D1SessionStart
 
+    /** Represents primary. */
     data object Primary : D1SessionStart
 
+    /** Represents bookmark.
+     *
+     * @property bookmark Value associated with bookmark.
+     */
     data class After(val bookmark: D1Bookmark) : D1SessionStart
 }
 
@@ -42,13 +53,17 @@ class D1Session internal constructor(
 
     override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = execution.queryRaw(sql, parameters)
 
+    /** Provides the batch result. */
     suspend fun batch(statements: NonEmptyList<D1BatchStatement>): List<D1BatchResult> = execution.batch(statements)
 
+    /** Provides the batch result. */
     suspend fun batch(first: D1BatchStatement, vararg remaining: D1BatchStatement): List<D1BatchResult> =
         batch(nonEmptyListOf(first, *remaining))
 
+    /** Provides the batch result. */
     suspend fun batch(block: D1BatchBuilder.() -> Unit): List<D1BatchResult> =
         execution.batch(D1BatchBuilder().apply(block).build())
 
+    /** Provides the bookmark result. */
     fun bookmark(): D1Bookmark? = endpoint.bookmark()
 }

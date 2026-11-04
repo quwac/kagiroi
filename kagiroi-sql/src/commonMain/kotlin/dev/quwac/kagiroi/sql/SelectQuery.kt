@@ -13,17 +13,36 @@ import dev.quwac.kagiroi.schema.SqlFunctionExpression
 import dev.quwac.kagiroi.schema.Table
 import dev.quwac.kagiroi.schema.TableRelationSource
 
+/** Direction applied to one SQL ordering expression.
+ *
+ * @property sql SQL ordering token.
+ */
 enum class SortDirection(val sql: String) {
+    /** Sort values from lowest to highest. */
     ASCENDING("ASC"),
+
+    /** Sort values from highest to lowest. */
     DESCENDING("DESC"),
 }
 
-/** The explicit placement of SQL NULL values within one ordered result. */
+/** The explicit placement of SQL NULL values within one ordered result.
+ *
+ * @property sql SQL null-ordering clause.
+ */
 enum class NullOrdering(val sql: String) {
+    /** Place null values before non-null values. */
     FIRST("NULLS FIRST"),
+
+    /** Place null values after non-null values. */
     LAST("NULLS LAST"),
 }
 
+/** One typed SQL ordering expression.
+ *
+ * @property expression value used to order rows.
+ * @property direction ascending or descending order.
+ * @property nullOrdering explicit NULL placement, or `null` for the database default.
+ */
 class Order<T> internal constructor(
     val expression: SqlExpression<T>,
     val direction: SortDirection,
@@ -43,8 +62,10 @@ class Order<T> internal constructor(
     override val indexHasNullOrdering: Boolean get() = nullOrdering != null
 }
 
+/** Orders this expression in ascending order. */
 fun <T> SqlExpression<T>.asc(): Order<T> = Order(this, SortDirection.ASCENDING)
 
+/** Orders this expression in descending order. */
 fun <T> SqlExpression<T>.desc(): Order<T> = Order(this, SortDirection.DESCENDING)
 
 /** Places SQL NULL values before non-NULL values where the selected dialect supports this syntax. */
@@ -55,10 +76,19 @@ fun <T> Order<T>.nullsLast(): Order<T> = Order(expression, direction, NullOrderi
 
 /** The explicit SQL join kinds supported by the SELECT AST. */
 enum class JoinType(internal val sql: String) {
+    /** Inner join. */
     Inner("INNER JOIN"),
+
+    /** Left outer join. */
     Left("LEFT JOIN"),
+
+    /** Right outer join. */
     Right("RIGHT JOIN"),
+
+    /** Full outer join. */
     Full("FULL OUTER JOIN"),
+
+    /** Cartesian join without an ON condition. */
     Cross("CROSS JOIN"),
 
     /** A correlation-aware relation edge whose physical spelling belongs to the dialect. */
@@ -68,9 +98,15 @@ enum class JoinType(internal val sql: String) {
     LeftLateral(""),
 }
 
-/** The portable semantic kinds of a left-correlated derived-relation join. */
+/** The portable semantic kinds of a left-correlated derived-relation join.
+ *
+ * @property unsupportedCapability identifier used if the dialect cannot render this join.
+ */
 enum class LateralJoinType(val unsupportedCapability: String) {
+    /** Cross-like correlated relation join. */
     Cross("lateral-cross"),
+
+    /** Left-like correlated relation join. */
     Left("lateral-left"),
 }
 
@@ -81,7 +117,12 @@ internal val JoinType.lateralType: LateralJoinType?
         else -> null
     }
 
-/** One immutable edge in a SELECT FROM tree. */
+/** One immutable edge in a SELECT FROM tree.
+ *
+ * @property type kind of join.
+ * @property right relation introduced by this join.
+ * @property condition ON or USING condition, or `null` for CROSS and LATERAL joins.
+ */
 class Join internal constructor(
     val type: JoinType,
     val right: RelationSource,
@@ -109,20 +150,28 @@ class Join internal constructor(
 
 /** Compile-time state that exposes only clauses valid at the current position. */
 sealed interface SelectQueryState {
+    /** A clause position where joins are permitted. */
     sealed interface JoinAllowed : SelectQueryState
 
+    /** A clause position where WHERE is permitted. */
     sealed interface WhereAllowed : SelectQueryState
 
+    /** A clause position where GROUP BY is permitted. */
     sealed interface GroupByAllowed : SelectQueryState
 
+    /** A clause position where HAVING is permitted. */
     sealed interface HavingAllowed : SelectQueryState
 
+    /** A clause position where ORDER BY is permitted. */
     sealed interface OrderByAllowed : SelectQueryState
 
+    /** A clause position where LIMIT is permitted. */
     sealed interface LimitAllowed : SelectQueryState
 
+    /** A clause position where OFFSET is permitted. */
     sealed interface OffsetAllowed : SelectQueryState
 
+    /** Initial query state after a FROM source has been supplied. */
     sealed interface Start :
         JoinAllowed,
         WhereAllowed,
@@ -141,6 +190,7 @@ sealed interface SelectQueryState {
         LimitAllowed,
         OffsetAllowed
 
+    /** Query state after WHERE has been added. */
     sealed interface AfterWhere :
         GroupByAllowed,
         HavingAllowed,
@@ -148,24 +198,29 @@ sealed interface SelectQueryState {
         LimitAllowed,
         OffsetAllowed
 
+    /** Query state after GROUP BY has been added. */
     sealed interface AfterGroupBy :
         HavingAllowed,
         OrderByAllowed,
         LimitAllowed,
         OffsetAllowed
 
+    /** Query state after HAVING has been added. */
     sealed interface AfterHaving :
         OrderByAllowed,
         LimitAllowed,
         OffsetAllowed
 
+    /** Query state after ORDER BY has been added. */
     sealed interface AfterOrderBy :
         OrderByAllowed,
         LimitAllowed,
         OffsetAllowed
 
+    /** Query state after LIMIT has been added. */
     sealed interface AfterLimit : OffsetAllowed
 
+    /** Query state after OFFSET has been added. */
     sealed interface AfterOffset : SelectQueryState
 }
 
@@ -178,7 +233,16 @@ data object SingleProjection : SelectProjectionShape
 /** A SELECT with two or more projected expressions. */
 data object MultipleProjections : SelectProjectionShape
 
-/** An immutable SELECT query model with an optional base source and zero or more typed joins. */
+/** An immutable SELECT query model with an optional base source and zero or more typed joins.
+ *
+ * @property joins ordered joins after the base source.
+ * @property predicate optional WHERE predicate.
+ * @property groupBy grouping elements.
+ * @property having optional HAVING predicate.
+ * @property order result ordering expressions.
+ * @property limit maximum number of rows returned.
+ * @property offset number of rows skipped.
+ */
 class SelectQuery<S : SelectQueryState, T, P : SelectProjectionShape> internal constructor(
     /** The first projection retains the query's scalar result type. */
     internal val scalarProjection: SqlExpression<T>,
@@ -209,6 +273,7 @@ class SelectQuery<S : SelectQueryState, T, P : SelectProjectionShape> internal c
         get() = (fromSource as? TableRelationSource)?.table
             ?: error("The FROM source is not a physical table: $fromSource")
 
+    /** Adds [table] as the base FROM source. */
     fun from(table: Table): SelectQuery<SelectQueryState.Start, T, P> = from(table as RelationSource)
 
     /** Adds the one base source to a source-less SELECT. */
@@ -420,10 +485,11 @@ private fun SqlExpression<*>.isOuterJoinSafe(nullableSources: Map<RelationSource
     else -> false
 }
 
-/** Starts an immutable source-less SELECT; [from] is optional and adds one base relation source. */
+/** Starts a source-less SELECT with one typed projection. */
 fun <T> select(expression: SqlExpression<T>): SelectQuery<SelectQueryState.SourceLessStart, T, SingleProjection> =
     SelectQuery(expression, listOf(expression), fromSource = null)
 
+/** Selects the select result. */
 fun <T> select(
     expression: SqlExpression<T>,
     additionalExpression: SqlExpression<*>,
@@ -515,6 +581,7 @@ fun <S : SelectQueryState, T, P : SelectProjectionShape> SelectQuery<S, T, P>.wi
     )
 }
 
+/** Adds an INNER JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.innerJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -527,6 +594,7 @@ fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.innerJoinUsing(
 ): SelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     joinUsing(JoinType.Inner, source, using)
 
+/** Adds a LEFT JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.leftJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -539,6 +607,7 @@ fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.leftJoinUsing(
 ): SelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     joinUsing(JoinType.Left, source, using)
 
+/** Adds a RIGHT JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.rightJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -551,6 +620,7 @@ fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.rightJoinUsing(
 ): SelectQuery<S, T, P> where S : SelectQueryState, S : SelectQueryState.JoinAllowed =
     joinUsing(JoinType.Right, source, using)
 
+/** Adds a FULL OUTER JOIN using [on] as its ON condition. */
 fun <S, T, P : SelectProjectionShape> SelectQuery<S, T, P>.fullOuterJoin(
     source: RelationSource,
     on: SqlPredicate,
@@ -651,6 +721,7 @@ private fun SelectQuery<*, *, *>.requireNoAmbiguousSourceName(candidate: Relatio
     require(!existingAliasCollision) { "Relation source name is ambiguous in this query: $candidateName" }
 }
 
+/** Restricts result rows to those matching [predicate]. */
 fun <S : SelectQueryState.WhereAllowed, T, P : SelectProjectionShape> SelectQuery<S, T, P>.where(
     predicate: SqlPredicate,
 ): SelectQuery<SelectQueryState.AfterWhere, T, P> = SelectQuery(
@@ -738,6 +809,7 @@ fun <S : SelectQueryState.HavingAllowed, T, P : SelectProjectionShape> SelectQue
     distinctOn = distinctOn,
 )
 
+/** Orders the result rows by one or more typed expressions. */
 fun <S : SelectQueryState.OrderByAllowed, T, P : SelectProjectionShape> SelectQuery<S, T, P>.orderBy(
     order: Order<*>,
     vararg additionalOrders: Order<*>,
@@ -761,6 +833,7 @@ fun <S : SelectQueryState.OrderByAllowed, T, P : SelectProjectionShape> SelectQu
     )
 }
 
+/** Limits the number of result rows. */
 fun <S : SelectQueryState.LimitAllowed, T, P : SelectProjectionShape> SelectQuery<S, T, P>.limit(
     limit: Int,
 ): SelectQuery<SelectQueryState.AfterLimit, T, P> {
@@ -783,6 +856,7 @@ fun <S : SelectQueryState.LimitAllowed, T, P : SelectProjectionShape> SelectQuer
     )
 }
 
+/** Skips the specified number of result rows. */
 fun <S : SelectQueryState.OffsetAllowed, T, P : SelectProjectionShape> SelectQuery<S, T, P>.offset(
     offset: Int,
 ): SelectQuery<SelectQueryState.AfterOffset, T, P> {

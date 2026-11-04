@@ -22,34 +22,45 @@ typealias ExpressionNullComparison = dev.quwac.kagiroi.schema.ExpressionNullComp
 typealias LogicalOperator = dev.quwac.kagiroi.schema.LogicalOperator
 typealias LogicalPredicate = dev.quwac.kagiroi.schema.LogicalPredicate
 
+/** Tests whether this column equals [value]. */
 infix fun <T> Column<T>.eq(value: T & Any): SqlPredicate = comparison(ComparisonOperator.EQUALS, value)
 
+/** Tests whether this column differs from [value]. */
 infix fun <T> Column<T>.neq(value: T & Any): SqlPredicate = comparison(ComparisonOperator.NOT_EQUALS, value)
 
+/** Tests whether this column is less than [value]. */
 infix fun <T> Column<T>.lt(value: T & Any): SqlPredicate = comparison(ComparisonOperator.LESS_THAN, value)
 
+/** Tests whether this column is less than or equal to [value]. */
 infix fun <T> Column<T>.lte(value: T & Any): SqlPredicate = comparison(ComparisonOperator.LESS_THAN_OR_EQUALS, value)
 
+/** Tests whether this column is greater than [value]. */
 infix fun <T> Column<T>.gt(value: T & Any): SqlPredicate = comparison(ComparisonOperator.GREATER_THAN, value)
 
+/** Tests whether this column is greater than or equal to [value]. */
 infix fun <T> Column<T>.gte(value: T & Any): SqlPredicate = comparison(ComparisonOperator.GREATER_THAN_OR_EQUALS, value)
 
 /** Compares a typed function or arithmetic expression with a non-null Kotlin value. */
 infix fun <T> SqlExpression<T>.eq(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.EQUALS, value)
 
+/** Tests whether this expression differs from [value]. */
 infix fun <T> SqlExpression<T>.neq(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.NOT_EQUALS, value)
 
+/** Tests whether this expression is less than [value]. */
 infix fun <T> SqlExpression<T>.lt(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.LESS_THAN, value)
 
+/** Tests whether this expression is less than or equal to [value]. */
 infix fun <T> SqlExpression<T>.lte(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.LESS_THAN_OR_EQUALS, value)
 
+/** Tests whether this expression is greater than [value]. */
 infix fun <T> SqlExpression<T>.gt(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.GREATER_THAN, value)
 
+/** Tests whether this expression is greater than or equal to [value]. */
 infix fun <T> SqlExpression<T>.gte(value: T & Any): SqlPredicate =
     ExpressionValueComparison(this, ComparisonOperator.GREATER_THAN_OR_EQUALS, value)
 
@@ -57,18 +68,23 @@ infix fun <T> SqlExpression<T>.gte(value: T & Any): SqlPredicate =
 infix fun <T> SqlExpression<T>.eq(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.EQUALS, other)
 
+/** Tests whether these expressions differ. */
 infix fun <T> SqlExpression<T>.neq(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.NOT_EQUALS, other)
 
+/** Tests whether this expression is less than [other]. */
 infix fun <T> SqlExpression<T>.lt(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.LESS_THAN, other)
 
+/** Tests whether this expression is less than or equal to [other]. */
 infix fun <T> SqlExpression<T>.lte(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.LESS_THAN_OR_EQUALS, other)
 
+/** Tests whether this expression is greater than [other]. */
 infix fun <T> SqlExpression<T>.gt(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.GREATER_THAN, other)
 
+/** Tests whether this expression is greater than or equal to [other]. */
 infix fun <T> SqlExpression<T>.gte(other: SqlExpression<T>): SqlPredicate =
     ExpressionComparison(this, ComparisonOperator.GREATER_THAN_OR_EQUALS, other)
 
@@ -87,12 +103,16 @@ infix fun <T : Any> SqlExpression<T>.eq(other: SqlExpression<T?>): SqlPredicate 
 infix fun <T : Any> SqlExpression<T>.gt(other: SqlExpression<T?>): SqlPredicate =
     ExpressionComparison(this as SqlExpression<T?>, ComparisonOperator.GREATER_THAN, other)
 
+/** Tests whether this nullable column contains SQL `NULL`. */
 fun <T : Any> Column<T?>.isNull(): SqlPredicate = NullComparison(this, NullOperator.IS_NULL)
 
+/** Tests whether this nullable column contains a non-null value. */
 fun <T : Any> Column<T?>.isNotNull(): SqlPredicate = NullComparison(this, NullOperator.IS_NOT_NULL)
 
+/** Tests whether this nullable expression evaluates to SQL `NULL`. */
 fun <T : Any> SqlExpression<T?>.isNull(): SqlPredicate = ExpressionNullComparison(this, NullOperator.IS_NULL)
 
+/** Tests whether this nullable expression evaluates to a non-null value. */
 fun <T : Any> SqlExpression<T?>.isNotNull(): SqlPredicate = ExpressionNullComparison(this, NullOperator.IS_NOT_NULL)
 
 /** Compares two values, treating two SQL NULL values as equal. */
@@ -131,8 +151,10 @@ infix fun <T : Any> SqlExpression<T?>.isDistinctFrom(other: SqlExpression<T>): S
 infix fun <T : Any> SqlExpression<T>.isDistinctFrom(other: SqlExpression<T?>): SqlPredicate =
     NullSafeComparison(this as SqlExpression<T?>, distinct = true, other)
 
+/** Combines this predicate with [other] using SQL `AND`. */
 infix fun SqlPredicate.and(other: SqlPredicate): SqlPredicate = LogicalPredicate(this, LogicalOperator.AND, other)
 
+/** Combines this predicate with [other] using SQL `OR`. */
 infix fun SqlPredicate.or(other: SqlPredicate): SqlPredicate = LogicalPredicate(this, LogicalOperator.OR, other)
 
 private fun <T> Column<T>.comparison(operator: ComparisonOperator, value: T & Any): SqlPredicate =

@@ -11,12 +11,15 @@ import dev.quwac.kagiroi.sqlserver.SqlServerTypes
  * constraints; this module never rounds a Kotlin value to make it fit.
  */
 object SqlServerQuwacBigNumber {
+    /** Provides the decimal integer result. */
     fun decimalInteger(precision: Int): SqlServerColumnType<dev.quwac.bignumber.BigInteger, String> =
         SqlServerTypes.decimal(precision, 0, BigNumberTextMappings.integer)
 
+    /** Provides the decimal result. */
     fun decimal(precision: Int, scale: Int): SqlServerColumnType<dev.quwac.bignumber.BigDecimal, String> =
         SqlServerTypes.decimal(precision, scale, BigNumberTextMappings.decimal)
 
+    /** Provides the numeric result. */
     fun numeric(precision: Int, scale: Int): SqlServerColumnType<dev.quwac.bignumber.BigDecimal, String> =
         SqlServerTypes.numeric(precision, scale, BigNumberTextMappings.decimal)
 }

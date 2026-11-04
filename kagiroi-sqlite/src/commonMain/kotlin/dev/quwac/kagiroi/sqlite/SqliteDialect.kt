@@ -51,10 +51,19 @@ import dev.quwac.kagiroi.sql.renderTableConstraints
 
 /** SQLite's runtime value storage classes, without choosing column affinity or driver binding conversions. */
 enum class SqliteStorageClass {
+    /** Value associated with integer. */
     INTEGER,
+
+    /** Value associated with real. */
     REAL,
+
+    /** Value associated with text. */
     TEXT,
+
+    /** Value associated with blob. */
     BLOB,
+
+    /** Value associated with null. */
     NULL,
 }
 
@@ -145,6 +154,7 @@ object SqliteDialect : SqlDdlDialect, SqlReplaceDialect, SqlInsertConflictDialec
 
     override fun render(statement: DdlStatement): RenderedSql = ddlRenderer.render(this, statement)
 
+    /** Provides the configured result. */
     fun configured(extensions: Iterable<SqliteExtension>): SqlDdlDialect {
         val installed = extensions.toList()
         return if (installed.isEmpty()) this else ConfiguredSqliteDialect(installed)
@@ -268,6 +278,7 @@ class SqliteTypeRegistry(extensions: Iterable<SqliteExtension> = emptyList()) {
         SqliteStandardTypes.typeCodecs + extensions.flatMap(SqliteExtension::typeCodecs),
     )
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): SqliteStorageClass? {
         val physicalType = codecs.storageType(type)
             ?: (type as? MappedColumnType<*, *>)?.underlyingType

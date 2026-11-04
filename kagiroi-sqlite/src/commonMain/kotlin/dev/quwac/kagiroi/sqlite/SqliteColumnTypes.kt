@@ -43,9 +43,16 @@ class SqliteColumnType<T : Any, S : Any> internal constructor(
  * supplies their conversion contract.
  */
 object SqliteTypes {
+    /** Value associated with integer. */
     val integer: SqliteColumnType<Long, Long> = scalar("SQLite INTEGER", LongColumnType, "INTEGER")
+
+    /** Value associated with real. */
     val real: SqliteColumnType<Double, Double> = scalar("SQLite REAL", DoubleColumnType, "REAL")
+
+    /** Value associated with text. */
     val text: SqliteColumnType<String, String> = scalar("SQLite TEXT", StringColumnType, "TEXT")
+
+    /** Value associated with blob. */
     val blob: SqliteColumnType<ByteArray, ByteArray> = scalar("SQLite BLOB", ByteArrayColumnType, "BLOB")
 
     /**
@@ -141,8 +148,15 @@ object SqliteTypes {
 
 /** The SQLite declared storage classes that have one matching Kagiroi scalar codec. */
 enum class SqliteDeclaredType(internal val sqlName: String) {
+    /** Value associated with integer. */
     INTEGER("INTEGER"),
+
+    /** Value associated with real. */
     REAL("REAL"),
+
+    /** Value associated with text. */
     TEXT("TEXT"),
+
+    /** Value associated with blob. */
     BLOB("BLOB"),
 }

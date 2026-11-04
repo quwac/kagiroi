@@ -19,6 +19,7 @@ import kotlin.js.Promise
 import kotlin.js.toJsString
 import kotlin.js.unsafeCast
 
+/** Runs the run hyperdrive my sql contract result. */
 @JsExport
 fun runHyperdriveMySqlContract(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
@@ -40,6 +41,7 @@ fun runHyperdriveMySqlContract(binding: JsAny): Promise<JsString> = Promise { re
     })
 }
 
+/** Runs the run hyperdrive my sql smoke result. */
 @JsExport
 fun runHyperdriveMySqlSmoke(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
@@ -49,6 +51,7 @@ fun runHyperdriveMySqlSmoke(binding: JsAny): Promise<JsString> = Promise { resol
     operation.startCoroutine(completion(resolve, reject))
 }
 
+/** Runs the run hyperdrive maria db contract result. */
 @JsExport
 fun runHyperdriveMariaDbContract(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
@@ -58,6 +61,7 @@ fun runHyperdriveMariaDbContract(binding: JsAny): Promise<JsString> = Promise { 
     operation.startCoroutine(completion(resolve, reject))
 }
 
+/** Runs the run hyperdrive maria db smoke result. */
 @JsExport
 fun runHyperdriveMariaDbSmoke(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
@@ -90,6 +94,7 @@ private fun completion(resolve: (JsString) -> Unit, reject: (JsAny) -> Unit) = o
     }
 }
 
+/** Provides the main result. */
 fun main() = Unit
 
 @Suppress("UnusedParameter")

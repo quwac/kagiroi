@@ -16,6 +16,7 @@ import kotlin.js.ExperimentalJsExport
 import kotlin.js.JsExport
 import kotlin.js.Promise
 
+/** Runs the run hyperdrive my sql contract result. */
 @JsExport
 fun runHyperdriveMySqlContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
@@ -37,6 +38,7 @@ fun runHyperdriveMySqlContract(binding: CloudflareHyperdriveBinding): Promise<St
     })
 }
 
+/** Runs the run hyperdrive my sql smoke result. */
 @JsExport
 fun runHyperdriveMySqlSmoke(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
@@ -46,6 +48,7 @@ fun runHyperdriveMySqlSmoke(binding: CloudflareHyperdriveBinding): Promise<Strin
     operation.startCoroutine(completion(resolve, reject))
 }
 
+/** Runs the run hyperdrive maria db contract result. */
 @JsExport
 fun runHyperdriveMariaDbContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
@@ -55,6 +58,7 @@ fun runHyperdriveMariaDbContract(binding: CloudflareHyperdriveBinding): Promise<
     operation.startCoroutine(completion(resolve, reject))
 }
 
+/** Runs the run hyperdrive maria db smoke result. */
 @JsExport
 fun runHyperdriveMariaDbSmoke(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
@@ -83,6 +87,7 @@ private fun completion(resolve: (String) -> Unit, reject: (Throwable) -> Unit) =
     }
 }
 
+/** Provides the main result. */
 fun main() = Unit
 
 @Suppress("UnusedParameter")

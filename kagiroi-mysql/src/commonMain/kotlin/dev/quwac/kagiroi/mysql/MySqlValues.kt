@@ -24,26 +24,77 @@ import kotlin.uuid.Uuid
 
 /** A parameter value before the target-specific mysql2 bridge. */
 sealed interface MySqlBinding {
+    /** Represents null. */
     data object Null : MySqlBinding
+
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : MySqlBinding
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : MySqlBinding
+
+    /** Represents integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Integer(val decimal: String) : MySqlBinding
+
+    /** Represents real.
+     *
+     * @property value Value associated with value.
+     */
     data class Real(val value: Double) : MySqlBinding
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : MySqlBinding
 }
 
 /** A mysql2 field value normalized without losing integer precision. */
 sealed interface MySqlScalar {
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : MySqlScalar
+
+    /** Represents decimal.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Number(val decimal: String) : MySqlScalar
+
+    /** Represents boolean value.
+     *
+     * @property value Value associated with value.
+     */
     data class BooleanValue(val value: Boolean) : MySqlScalar
+
+    /** Represents bytes.
+     *
+     * @property value Value associated with value.
+     */
     data class Bytes(val value: ByteArray) : MySqlScalar
 }
 
+/** A value returned by MySQL, preserving the protocol type used to decode it.
+ *
+ * @property protocolType MySQL protocol type identifier.
+ * @property value decoded scalar value, or `null` for SQL `NULL`.
+ */
 data class MySqlResultValue(val protocolType: Int, val value: MySqlScalar?)
 
 /** MySQL scalar conversion shared by MySQL execution adapters. */
 class MySqlValueCodec(private val codecs: SqlTypeCodecRegistry) {
+    /** Provides the binding result. */
     fun binding(value: Any?, expression: SqlExpression<*>? = null): MySqlBinding {
         if (value == null) return MySqlBinding.Null
         val columnType = expression?.storageType
@@ -51,6 +102,7 @@ class MySqlValueCodec(private val codecs: SqlTypeCodecRegistry) {
         return bindScalar(encoded?.value ?: value, encoded?.storageType ?: columnType)
     }
 
+    /** Decodes the decode result. */
     @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
     fun decode(column: SqlExpression<*>, value: MySqlResultValue): Any? {
         val scalar = value.value
@@ -89,6 +141,7 @@ class MySqlValueCodec(private val codecs: SqlTypeCodecRegistry) {
         }
     }
 
+    /** Provides the raw value result. */
     fun rawValue(value: MySqlResultValue): Any? = when (val scalar = value.value) {
         null -> null
         is MySqlScalar.Bytes -> scalar.value.copyOf()

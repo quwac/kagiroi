@@ -1,6 +1,10 @@
 package dev.quwac.kagiroi.schema
 
-/** One stable, named argument of an extension column type descriptor. */
+/** One stable, named argument of an extension column type descriptor.
+ *
+ * @property name unique argument name within the descriptor.
+ * @property value serialized value of the argument.
+ */
 data class SchemaTypeArgument(val name: String, val value: String) {
     init {
         require(name.isNotBlank()) { "Schema type argument name must not be blank" }
@@ -13,6 +17,9 @@ data class SchemaTypeArgument(val name: String, val value: String) {
  * The identifier is an extension API contract, never a Kotlin implementation class name. Values
  * in [arguments] are strings so export can preserve precision, scale, and large numeric values
  * without JavaScript number coercion.
+ *
+ * @property id stable identifier owned by the extension that defines the storage type.
+ * @property arguments named arguments that parameterize the storage type.
  */
 data class SchemaTypeDescriptor(val id: String, val arguments: List<SchemaTypeArgument> = emptyList()) {
     init {
@@ -28,5 +35,6 @@ data class SchemaTypeDescriptor(val id: String, val arguments: List<SchemaTypeAr
  * Kagiroi's built-in scalar types.
  */
 interface StableSchemaColumnType {
+    /** Stable identifier and arguments used to export this type. */
     val schemaTypeDescriptor: SchemaTypeDescriptor
 }

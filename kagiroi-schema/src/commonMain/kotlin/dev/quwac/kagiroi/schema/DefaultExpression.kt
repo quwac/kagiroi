@@ -6,6 +6,8 @@ package dev.quwac.kagiroi.schema
  * The expression remains an ordinary [SqlExpression]. This wrapper carries its DEFAULT-context
  * validation and gives schema snapshots a structural equality boundary without creating a second
  * SQL expression language.
+ *
+ * @property expression typed SQL expression used when INSERT omits the column.
  */
 class ColumnDefault<T> internal constructor(val expression: SqlExpression<T>) {
     private val structure = DefaultExpressionStructure.of(expression)
@@ -20,19 +22,37 @@ class ColumnDefault<T> internal constructor(val expression: SqlExpression<T>) {
 /** A typed value-free operand used by [defaultExpression]. */
 sealed interface DefaultExpression<out T>
 
-/** A typed literal operand for a composed DEFAULT expression. */
+/** A typed literal operand for a composed DEFAULT expression.
+ *
+ * @property value literal value used by the DEFAULT expression.
+ */
 @ConsistentCopyVisibility
 data class DefaultLiteral<T> internal constructor(val value: T) : DefaultExpression<T>
 
-/** Arithmetic operators in the portable DEFAULT-expression subset. */
+/** Arithmetic operators in the portable DEFAULT-expression subset.
+ *
+ * @property sql SQL operator token.
+ */
 enum class DefaultBinaryOperator(val sql: String) {
+    /** Addition. */
     Add("+"),
+
+    /** Subtraction. */
     Subtract("-"),
+
+    /** Multiplication. */
     Multiply("*"),
+
+    /** Division. */
     Divide("/"),
 }
 
-/** A same-type arithmetic operand retained by [defaultExpression]. */
+/** A same-type arithmetic operand retained by [defaultExpression].
+ *
+ * @property left left-hand operand.
+ * @property operator arithmetic operation applied to the operands.
+ * @property right right-hand operand.
+ */
 @ConsistentCopyVisibility
 data class DefaultBinaryExpression<T> internal constructor(
     val left: DefaultExpression<T>,
@@ -43,24 +63,32 @@ data class DefaultBinaryExpression<T> internal constructor(
 /** Wraps a typed value when it is an operand of a composed DEFAULT expression. */
 fun <T> defaultExpression(value: T): DefaultExpression<T> = DefaultLiteral(value)
 
+/** Adds [other] to this DEFAULT expression. */
 operator fun <T> DefaultExpression<T>.plus(other: DefaultExpression<T>): DefaultExpression<T> =
     DefaultBinaryExpression(this, DefaultBinaryOperator.Add, other)
 
+/** Subtracts [other] from this DEFAULT expression. */
 operator fun <T> DefaultExpression<T>.minus(other: DefaultExpression<T>): DefaultExpression<T> =
     DefaultBinaryExpression(this, DefaultBinaryOperator.Subtract, other)
 
+/** Multiplies this DEFAULT expression by [other]. */
 operator fun <T> DefaultExpression<T>.times(other: DefaultExpression<T>): DefaultExpression<T> =
     DefaultBinaryExpression(this, DefaultBinaryOperator.Multiply, other)
 
+/** Divides this DEFAULT expression by [other]. */
 operator fun <T> DefaultExpression<T>.div(other: DefaultExpression<T>): DefaultExpression<T> =
     DefaultBinaryExpression(this, DefaultBinaryOperator.Divide, other)
 
+/** Adds [other] as a literal to this DEFAULT expression. */
 operator fun <T> DefaultExpression<T>.plus(other: T): DefaultExpression<T> = this + defaultExpression(other)
 
+/** Subtracts [other] as a literal from this DEFAULT expression. */
 operator fun <T> DefaultExpression<T>.minus(other: T): DefaultExpression<T> = this - defaultExpression(other)
 
+/** Multiplies this DEFAULT expression by the literal [other]. */
 operator fun <T> DefaultExpression<T>.times(other: T): DefaultExpression<T> = this * defaultExpression(other)
 
+/** Divides this DEFAULT expression by the literal [other]. */
 operator fun <T> DefaultExpression<T>.div(other: T): DefaultExpression<T> = this / defaultExpression(other)
 
 /** Returns the database's current instant in ordinary SQL and DEFAULT expression contexts. */
@@ -85,7 +113,12 @@ internal fun <T> DefaultExpression<T>.asSqlExpression(template: SqlExpression<T>
     }
 }
 
-/** An ordinary-expression view of the value-free [DefaultBinaryExpression] tree. */
+/** An ordinary-expression view of the value-free [DefaultBinaryExpression] tree.
+ *
+ * @property left left-hand operand.
+ * @property operator arithmetic operation applied to the operands.
+ * @property right right-hand operand.
+ */
 class LegacyDefaultBinarySqlExpression<T> internal constructor(
     val left: SqlExpression<T>,
     val operator: DefaultBinaryOperator,

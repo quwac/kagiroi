@@ -1,15 +1,32 @@
 package dev.quwac.kagiroi.schema
 
-/** The portable arithmetic operators whose operands share one Kotlin numeric type. */
+/** The portable arithmetic operators whose operands share one Kotlin numeric type.
+ *
+ * @property sql SQL operator token.
+ */
 enum class NumericBinaryOperator(val sql: String) {
+    /** Addition. */
     Add("+"),
+
+    /** Subtraction. */
     Subtract("-"),
+
+    /** Multiplication. */
     Multiply("*"),
+
+    /** Division. */
     Divide("/"),
+
+    /** Remainder after division. */
     Modulo("%"),
 }
 
-/** A typed ordinary-query arithmetic expression. Generated columns retain their value-free subtype. */
+/** A typed ordinary-query arithmetic expression. Generated columns retain their value-free subtype.
+ *
+ * @property left left-hand operand.
+ * @property operator arithmetic operation applied to the operands.
+ * @property right right-hand operand.
+ */
 class NumericBinaryExpression<T : Number?> internal constructor(
     val left: SqlExpression<T>,
     val operator: NumericBinaryOperator,

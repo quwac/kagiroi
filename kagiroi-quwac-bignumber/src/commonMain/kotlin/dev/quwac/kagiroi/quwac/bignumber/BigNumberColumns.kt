@@ -9,10 +9,12 @@ import dev.quwac.kagiroi.schema.Table
 import dev.quwac.kagiroi.schema.WritableColumn
 import dev.quwac.kagiroi.schema.columnMapping
 
+/** Represents big integer column type. */
 object BigIntegerColumnType : ColumnType<BigInteger>("BigInteger"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.quwac.bigInteger")
 }
 
+/** Represents big decimal column type. */
 object BigDecimalColumnType : ColumnType<BigDecimal>("BigDecimal"), StableSchemaColumnType {
     override val schemaTypeDescriptor = SchemaTypeDescriptor("kagiroi.quwac.bigDecimal")
 }
@@ -33,6 +35,8 @@ object BigNumberTextMappings {
     val decimal = columnMapping(fromStorage = BigDecimal::parse, toStorage = BigDecimal::toPlainString)
 }
 
+/** Provides the big integer result. */
 fun Table.bigInteger(name: String): WritableColumn<BigInteger> = column(name, BigIntegerColumnType)
 
+/** Provides the big decimal result. */
 fun Table.bigDecimal(name: String): WritableColumn<BigDecimal> = column(name, BigDecimalColumnType)

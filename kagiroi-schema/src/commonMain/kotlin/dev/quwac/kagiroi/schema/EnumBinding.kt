@@ -1,24 +1,32 @@
 package dev.quwac.kagiroi.schema
 
-/** A complete, bidirectional mapping between a Kotlin enum and stable database values. */
+/** A complete, bidirectional mapping between a Kotlin enum and stable database values.
+ *
+ * @property entries enum entries in the supplied declaration order.
+ */
 class EnumBinding<E : Enum<E>, S : Any> internal constructor(
     val entries: List<E>,
     private val storageByEntry: Map<E, S>,
     private val entryByStorage: Map<S, E>,
 ) {
+    /** Encodes an enum entry using its explicitly mapped database value. */
     fun toStorageValue(value: E): S = storageByEntry.getValue(value)
 
+    /** Decodes a database value, failing if it has no declared enum entry. */
     fun fromStorageValue(value: S): E = entryByStorage[value] ?: throw UnknownEnumValueException(value)
 }
 
 /** Indicates that a database value has no corresponding enum entry. */
-class UnknownEnumValueException(val storageValue: Any) :
-    IllegalArgumentException("Unknown stored enum value: $storageValue")
+class UnknownEnumValueException(
+    /** Database value that could not be mapped to an enum entry. */
+    val storageValue: Any,
+) : IllegalArgumentException("Unknown stored enum value: $storageValue")
 
 /** Collects explicit enum mappings without using ordinal or declaration position. */
 class EnumBindingBuilder<E : Enum<E>, S : Any> internal constructor() {
     internal val mappings = mutableListOf<Pair<E, S>>()
 
+    /** Associates this enum entry with [storageValue] in the binding being built. */
     infix fun E.mapsTo(storageValue: S) {
         require(mappings.none { it.first == this }) { "Enum entry is mapped more than once: $name" }
         require(
@@ -56,7 +64,11 @@ fun <E : Enum<E>, S : Any> enumBinding(
     )
 }
 
-/** Describes an enum column while preserving its underlying database scalar type. */
+/** Describes an enum column while preserving its underlying database scalar type.
+ *
+ * @property binding mapping between enum entries and stored scalar values.
+ * @property underlyingType scalar column type used for enum values.
+ */
 class EnumColumnType<E : Enum<E>, S : Any> internal constructor(
     val binding: EnumBinding<E, S>,
     val underlyingType: ColumnType<S>,

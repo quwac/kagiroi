@@ -5,8 +5,10 @@ class ColumnMapping<T : Any, S : Any> internal constructor(
     private val fromStorage: (S) -> T,
     private val toStorage: (T) -> S,
 ) {
+    /** Decodes a stored scalar into its application value. */
     fun fromStorageValue(value: S): T = fromStorage(value)
 
+    /** Encodes an application value into its stored scalar. */
     fun toStorageValue(value: T): S = toStorage(value)
 }
 
@@ -14,7 +16,11 @@ class ColumnMapping<T : Any, S : Any> internal constructor(
 fun <T : Any, S : Any> columnMapping(fromStorage: (S) -> T, toStorage: (T) -> S): ColumnMapping<T, S> =
     ColumnMapping(fromStorage, toStorage)
 
-/** Describes a transformed column while retaining its underlying database scalar type. */
+/** Describes a transformed column while retaining its underlying database scalar type.
+ *
+ * @property mapping conversion between the application value and the stored scalar.
+ * @property underlyingType column type used for the stored scalar.
+ */
 class MappedColumnType<T : Any, S : Any> internal constructor(
     val mapping: ColumnMapping<T, S>,
     val underlyingType: ColumnType<S>,

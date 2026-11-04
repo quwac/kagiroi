@@ -22,19 +22,37 @@ import kotlin.uuid.Uuid
 
 /** A scalar value at the shared SQLite storage boundary. */
 sealed interface SqlitePhysicalValue {
+    /** Represents null. */
     data object Null : SqlitePhysicalValue
 
+    /** Represents integer.
+     *
+     * @property decimal Value associated with decimal.
+     */
     data class Integer(val decimal: String) : SqlitePhysicalValue
 
+    /** Represents real.
+     *
+     * @property value Value associated with value.
+     */
     data class Real(val value: Double) : SqlitePhysicalValue
 
+    /** Represents text.
+     *
+     * @property value Value associated with value.
+     */
     data class Text(val value: String) : SqlitePhysicalValue
 
+    /** Represents blob.
+     *
+     * @property value Value associated with value.
+     */
     data class Blob(val value: ByteArray) : SqlitePhysicalValue
 }
 
 /** Shared SQLite scalar conversion used by local and remote execution drivers. */
 class SqliteValueCodec(private val codecs: SqlTypeCodecRegistry) {
+    /** Provides the binding result. */
     fun binding(value: Any?, expression: SqlExpression<*>? = null): SqlitePhysicalValue {
         if (value == null) return SqlitePhysicalValue.Null
         val columnType = expression?.storageType
@@ -43,6 +61,8 @@ class SqliteValueCodec(private val codecs: SqlTypeCodecRegistry) {
     }
 
     // This is the single exhaustive physical-value conversion boundary for every built-in column type.
+
+    /** Decodes the decode result. */
     @Suppress("CyclomaticComplexMethod", "ThrowsCount", "TooGenericExceptionCaught")
     fun decode(column: SqlExpression<*>, value: SqlitePhysicalValue): Any? {
         if (value === SqlitePhysicalValue.Null) {
@@ -100,6 +120,7 @@ class SqliteValueCodec(private val codecs: SqlTypeCodecRegistry) {
         }
     }
 
+    /** Provides the raw value result. */
     fun rawValue(value: SqlitePhysicalValue): Any? = when (value) {
         SqlitePhysicalValue.Null -> null
         is SqlitePhysicalValue.Integer -> value.decimal.toLong()

@@ -32,31 +32,71 @@ import dev.quwac.kagiroi.sql.UnsupportedCapability
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-/** Physical T-SQL type declarations used by built-in and extension mappings. */
+/** Physical T-SQL type declarations used by built-in and extension mappings.
+ *
+ * @property sqlName T-SQL type syntax used by DDL.
+ * @property textResultTransport whether the driver returns values of this type as text.
+ */
 enum class SqlServerType(val sqlName: String, val textResultTransport: Boolean = false) {
+    /** Value associated with bit. */
     BIT("BIT"),
+
+    /** Value associated with tinyint. */
     TINYINT("TINYINT"),
+
+    /** Value associated with smallint. */
     SMALLINT("SMALLINT"),
+
+    /** Value associated with int. */
     INT("INT"),
+
+    /** Value associated with bigint. */
     BIGINT("BIGINT", textResultTransport = true),
+
+    /** Value associated with real. */
     REAL("REAL"),
+
+    /** Value associated with float. */
     FLOAT("FLOAT"),
+
+    /** Value associated with nvarchar. */
     NVARCHAR("NVARCHAR(MAX)"),
+
+    /** Value associated with varbinary. */
     VARBINARY("VARBINARY(MAX)"),
+
+    /** Value associated with uniqueidentifier. */
     UNIQUEIDENTIFIER("UNIQUEIDENTIFIER"),
+
+    /** Value associated with decimal. */
     DECIMAL("DECIMAL(20,0)", textResultTransport = true),
+
+    /** Value associated with date. */
     DATE("DATE", textResultTransport = true),
+
+    /** Value associated with time. */
     TIME("TIME(7)", textResultTransport = true),
+
+    /** Value associated with datetime2. */
     DATETIME2("DATETIME2(7)", textResultTransport = true),
+
+    /** Value associated with datetimeoffset. */
     DATETIMEOFFSET("DATETIMEOFFSET(7)", textResultTransport = true),
 }
 
-/** Associates an application type with its SQL Server physical type and safe transport. */
+/** Associates an application type with its SQL Server physical type and safe transport.
+ *
+ * @property type logical Kotlin column type.
+ * @property sqlServerType corresponding T-SQL type.
+ */
 data class SqlServerTypeMapping<T : Any>(val type: ColumnType<T>, val sqlServerType: SqlServerType)
 
 /** An explicit SQL Server extension set; optional Kotlin types remain outside kagiroi-core. */
 interface SqlServerExtension {
+    /** Value associated with type mappings. */
     val typeMappings: List<SqlServerTypeMapping<*>>
+
+    /** Value associated with type codecs. */
     val typeCodecs: List<SqlTypeCodec<*, *>>
 }
 
@@ -90,49 +130,86 @@ class SqlServerColumnType<T : Any, S : Any> internal constructor(
 
 /** SQL Server type factories. String defaults to Unicode NVARCHAR rather than VARCHAR. */
 object SqlServerTypes {
+    /** Value associated with bit. */
     val bit = scalar("SQL Server BIT", BooleanColumnType, "BIT")
+
+    /** Value associated with tiny int. */
     val tinyInt = scalar("SQL Server TINYINT", UByteColumnType, "TINYINT")
+
+    /** Value associated with small int. */
     val smallInt = scalar("SQL Server SMALLINT", ShortColumnType, "SMALLINT")
+
+    /** Value associated with integer. */
     val integer = scalar("SQL Server INT", IntColumnType, "INT")
+
+    /** Value associated with big int. */
     val bigInt = scalar("SQL Server BIGINT", LongColumnType, "BIGINT", textResultTransport = true)
+
+    /** Value associated with real. */
     val real = scalar("SQL Server REAL", FloatColumnType, "REAL")
+
+    /** Value associated with float. */
     val float = scalar("SQL Server FLOAT", DoubleColumnType, "FLOAT")
+
+    /** Value associated with n varchar. */
     val nVarchar = text("NVARCHAR(MAX)")
+
+    /** Value associated with var binary. */
     val varBinary = scalar("SQL Server VARBINARY", ByteArrayColumnType, "VARBINARY(MAX)")
+
+    /** Value associated with unique identifier. */
     val uniqueIdentifier = scalar("SQL Server UNIQUEIDENTIFIER", UuidColumnType, "UNIQUEIDENTIFIER")
+
+    /** Value associated with date. */
     val date = text("DATE", textResultTransport = true)
+
+    /** Value associated with time. */
     val time = text("TIME(7)", textResultTransport = true)
+
+    /** Value associated with date time2. */
     val dateTime2 = text("DATETIME2(7)", textResultTransport = true)
+
+    /** Value associated with date time offset. */
     val dateTimeOffset = text("DATETIMEOFFSET(7)", textResultTransport = true)
 
+    /** Provides the n varchar result. */
     fun nVarchar(maxLength: Int): SqlServerColumnType<String, String> = text("NVARCHAR(${unicodeLength(maxLength)})")
 
+    /** Provides the varchar result. */
     fun varchar(maxLength: Int): SqlServerColumnType<String, String> = text("VARCHAR(${length(maxLength)})")
 
+    /** Provides the var binary result. */
     fun varBinary(maxLength: Int): SqlServerColumnType<ByteArray, ByteArray> =
         scalar("SQL Server VARBINARY", ByteArrayColumnType, "VARBINARY(${length(maxLength)})")
 
+    /** Provides the time result. */
     fun time(fractionalSecondsPrecision: Int): SqlServerColumnType<String, String> =
         text("TIME(${fractionalSecondsPrecision(fractionalSecondsPrecision)})", textResultTransport = true)
 
+    /** Provides the date time2 result. */
     fun dateTime2(fractionalSecondsPrecision: Int): SqlServerColumnType<String, String> =
         text("DATETIME2(${fractionalSecondsPrecision(fractionalSecondsPrecision)})", textResultTransport = true)
 
+    /** Provides the date time offset result. */
     fun dateTimeOffset(fractionalSecondsPrecision: Int): SqlServerColumnType<String, String> =
         text("DATETIMEOFFSET(${fractionalSecondsPrecision(fractionalSecondsPrecision)})", textResultTransport = true)
 
+    /** Provides the decimal result. */
     fun decimal(precision: Int, scale: Int): SqlServerColumnType<String, String> =
         text(decimalDeclaration(precision, scale), textResultTransport = true)
 
+    /** Provides the numeric result. */
     fun numeric(precision: Int, scale: Int): SqlServerColumnType<String, String> =
         text(numericDeclaration(precision, scale), textResultTransport = true)
 
+    /** Provides the decimal result. */
     fun <T : Any> decimal(
         precision: Int,
         scale: Int,
         mapping: ColumnMapping<T, String>,
     ): SqlServerColumnType<T, String> = mappedText(decimalDeclaration(precision, scale), mapping)
 
+    /** Provides the numeric result. */
     fun <T : Any> numeric(
         precision: Int,
         scale: Int,
@@ -214,6 +291,7 @@ class SqlServerTypeRegistry(extensions: Iterable<SqlServerExtension> = emptyList
         }
     }
 
+    /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): SqlServerType? = builtInType(type)
         ?: extensionMappings.firstOrNull { it.type === type }?.sqlServerType
         ?: (type as? MappedColumnType<*, *>)?.underlyingType?.let(::typeOf)

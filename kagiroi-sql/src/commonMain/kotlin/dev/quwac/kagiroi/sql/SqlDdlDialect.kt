@@ -27,14 +27,14 @@ interface SqlSequenceDialect : SqlDialect {
     fun renderNextValue(sequence: Sequence): RenderedSql
 }
 
-/**
- * An ordered DDL execution sequence.
+/** A non-empty ordered collection of SQL statements required for one DDL operation.
  *
- * A sequence is not an atomic transaction. Engines retain their own DDL transaction semantics, so a
- * later statement can fail after earlier statements have succeeded.
+ * @property statements statements to execute in order.
  */
 data class RenderedDdl(val statements: NonEmptyList<RenderedSql>) {
+    /** Represents companion. */
     companion object {
+        /** Creates a DDL result from a first statement and any remaining statements. */
         fun of(first: RenderedSql, remaining: List<RenderedSql> = emptyList()): RenderedDdl =
             RenderedDdl(nonEmptyListOf(first, *remaining.toTypedArray()))
     }

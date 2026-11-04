@@ -10,7 +10,9 @@ import kotlin.js.JsString
 import kotlin.js.unsafeCast
 import kotlin.test.Test
 
+/** Represents my sql compatibility integration test. */
 class MySqlCompatibilityIntegrationTest {
+    /** Provides the my sql driver contract result. */
     @Test
     fun mySqlDriverContract() = runTest {
         val connectionString = mySqlTestConnectionString() ?: return@runTest

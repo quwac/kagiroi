@@ -27,6 +27,7 @@ import kotlinx.datetime.UtcOffset
  * transport. Their precision argument must match the physical declaration. `TIMESTAMP`
  * is intentionally absent: its session-time-zone conversion is not a local civil
  * date-time mapping.
+ * @property localDate Value associated with local date.
  */
 object MySqlCompatibleKotlinxDateTimeMappings {
     val localDate: ColumnMapping<LocalDate, String> = columnMapping(
@@ -34,6 +35,7 @@ object MySqlCompatibleKotlinxDateTimeMappings {
         toStorage = LocalDate::toString,
     )
 
+    /** Provides the local time result. */
     fun localTime(fractionalSecondsPrecision: Int): ColumnMapping<LocalTime, String> = columnMapping(
         fromStorage = LocalTime::parse,
         toStorage = { value ->
@@ -41,6 +43,7 @@ object MySqlCompatibleKotlinxDateTimeMappings {
         },
     )
 
+    /** Provides the local date time result. */
     fun localDateTime(fractionalSecondsPrecision: Int): ColumnMapping<LocalDateTime, String> = columnMapping(
         fromStorage = { LocalDateTime.parse(it.replaceFirst(' ', 'T')) },
         toStorage = { value ->

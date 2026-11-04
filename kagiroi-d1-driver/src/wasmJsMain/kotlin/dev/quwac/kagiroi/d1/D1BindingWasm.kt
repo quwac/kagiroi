@@ -25,6 +25,7 @@ import kotlin.js.unsafeCast
 /** The Cloudflare Workers D1 binding passed through an environment object. */
 external interface CloudflareD1Binding : JsAny
 
+/** Provides the d1 database result. */
 fun D1Database(binding: CloudflareD1Binding, configure: D1DatabaseConfiguration.() -> Unit = {}): D1Database =
     D1Database.create(WasmD1Endpoint(binding.unsafeCast()), configure)
 

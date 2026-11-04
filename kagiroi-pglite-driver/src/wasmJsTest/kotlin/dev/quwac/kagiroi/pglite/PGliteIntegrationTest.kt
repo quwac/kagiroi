@@ -36,7 +36,9 @@ private external object NodePath : JsAny {
     fun join(vararg paths: String): String
 }
 
+/** Represents pglite integration test. */
 class PGliteIntegrationTest {
+    /** Provides the in memory contract result. */
     @Test
     fun inMemoryContract() = runTest {
         val database = configuredDatabase(PGliteStorage.Memory)
@@ -47,6 +49,7 @@ class PGliteIntegrationTest {
         }
     }
 
+    /** Provides the filesystem storage persists after close result. */
     @Test
     fun filesystemStoragePersistsAfterClose() = runTest {
         val directory = NodeFileSystem.mkdtempSync(NodePath.join(NodeOperatingSystem.tmpdir(), "kagiroi-pglite-"))
@@ -71,6 +74,7 @@ class PGliteIntegrationTest {
         }
     }
 
+    /** Creates the create table persists table and column comments result. */
     @Test
     fun createTablePersistsTableAndColumnComments() = runTest {
         val database = configuredDatabase(PGliteStorage.Memory)
@@ -94,6 +98,7 @@ class PGliteIntegrationTest {
         }
     }
 
+    /** Creates the create table and index persist unique constraint and index comments result. */
     @Test
     fun createTableAndIndexPersistUniqueConstraintAndIndexComments() = runTest {
         val database = configuredDatabase(PGliteStorage.Memory)
@@ -123,6 +128,7 @@ class PGliteIntegrationTest {
         }
     }
 
+    /** Creates the creates configured identity and generates the configured values result. */
     @Test
     fun createsConfiguredIdentityAndGeneratesTheConfiguredValues() = runTest {
         val database = configuredDatabase(PGliteStorage.Memory)
