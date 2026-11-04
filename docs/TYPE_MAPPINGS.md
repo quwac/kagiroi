@@ -26,7 +26,10 @@ Columns are `NOT NULL` by default. `nullable()` changes the Kotlin and SQL type.
 
 \* SQLite uses `INTEGER` for `ULong` to preserve numeric comparison and
 arithmetic in SQL. SQLite `INTEGER` is signed 64-bit, so values greater than
-`Long.MAX_VALUE` are rejected and the full Kotlin `ULong` range is not supported.
+`Long.MAX_VALUE` are rejected by this default mapping. `SqliteTypes.textUlong`
+is an opt-in full-range mapping: it stores 20-digit, zero-padded decimal `TEXT`,
+which preserves numeric comparison and sorting between values using the same
+mapping. SQLite arithmetic on `TEXT` does not preserve the full `ULong` precision.
 D1 also rejects integer bindings outside the JavaScript safe-integer range.
 Neither transport silently converts those values through JavaScript `Number`.
 
@@ -65,13 +68,14 @@ belong in a dialect extension or parameterized raw DDL.
 
 ### SQLite and Cloudflare D1
 
-`SqliteTypes` exposes SQLite storage classes with a fixed scalar contract:
+`SqliteTypes` exposes SQLite storage classes with fixed scalar contracts and a full-range `ULong` mapping:
 
 | Factory | DDL | Kotlin transport |
 | --- | --- | --- |
 | `SqliteTypes.integer` | `INTEGER` | `Long` |
 | `SqliteTypes.real` | `REAL` | `Double` |
 | `SqliteTypes.text` | `TEXT` | `String` |
+| `SqliteTypes.textUlong` | `TEXT` | `ULong` encoded as 20-digit zero-padded decimal text |
 | `SqliteTypes.blob` | `BLOB` | `ByteArray` |
 
 `mapped(...)` adds a domain mapping. `named(...)` and `namedText(...)` quote a caller-selected
