@@ -14,7 +14,7 @@
     "@testcontainers/oraclefree": "12.2.1",
     "@testcontainers/postgresql": "12.2.1",
     "knip": "6.44.0",
-    "oxfmt": "0.75.0",
+    "oxfmt": "0.76.0",
     "oxlint": "1.90.0",
     "wrangler": "4.156.0"
   },
