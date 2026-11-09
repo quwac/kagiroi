@@ -16,7 +16,7 @@
     "knip": "6.44.0",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
-    "wrangler": "4.156.0"
+    "wrangler": "4.158.0"
   },
   "overrides": {
     "glob": "14.0.2",
