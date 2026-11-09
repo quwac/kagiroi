@@ -1,0 +1,15 @@
+[global]
+disable = ["MD041"]
+exclude = ["**/node_modules/**", "**/build/**", ".gradle/**", ".kotlin/**"]
+force-exclude = true
+
+[MD013]
+line-length = 120
+code-blocks = false
+tables = false
+
+[MD024]
+siblings-only = false
+
+[MD033]
+allowed-elements = ["a", "h1", "img", "p"]
