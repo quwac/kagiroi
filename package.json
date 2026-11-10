@@ -13,7 +13,7 @@
     "@testcontainers/mysql": "12.2.1",
     "@testcontainers/oraclefree": "12.2.1",
     "@testcontainers/postgresql": "12.2.1",
-    "knip": "6.44.0",
+    "knip": "6.44.1",
     "oxfmt": "0.76.0",
     "oxlint": "1.90.0",
     "wrangler": "4.158.0"
