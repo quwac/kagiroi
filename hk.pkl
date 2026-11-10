@@ -30,10 +30,10 @@ steps {
     check = new Command { argv = List("bun", "run", "--bun", "oxfmt", "--check", "{{files}}") }
     fix = new Command { argv = List("bun", "run", "--bun", "oxfmt", "--write", "{{files}}") }
   }
-  ["markdownlint"] {
+  ["rumdl"] {
     glob = "**/*.md"
-    check = new Command { argv = List("bun", "run", "--bun", "markdownlint", "--no-globs", "{{files}}") }
-    fix = new Command { argv = List("bun", "run", "--bun", "markdownlint", "--no-globs", "--fix", "{{files}}") }
+    check = new Command { argv = List("rumdl", "check", "--config", ".rumdl.toml", "--", "{{files}}") }
+    fix = new Command { argv = List("rumdl", "check", "--config", ".rumdl.toml", "--fix", "--", "{{files}}") }
   }
   ["links-local"] {
     glob = "**/*.md"

@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD041 -->
+<!-- rumdl-disable MD041 -->
 
 ## 📝 Summary
 

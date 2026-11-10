@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.targets.wasm.npm.WasmNpmExtension
 
 buildscript {
     dependencies {
-        classpath("com.google.guava:guava:33.7.2-jre")
+        classpath("com.google.guava:guava:33.8.0-jre")
         classpath("org.bouncycastle:bcpkix-jdk18on:1.86")
         classpath("org.bouncycastle:bcprov-jdk18on:1.86")
         classpath("io.opentelemetry:opentelemetry-api:1.67.0")

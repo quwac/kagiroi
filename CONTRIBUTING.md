@@ -6,7 +6,7 @@ Kagiroi is a database toolkit for Kotlin/JS and Kotlin/Wasm.
 
 ```sh
 mise trust
-mise install --locked java bun node hk pkl lychee gh zizmor betterleaks \
+mise install --locked java bun node hk rumdl pkl lychee gh zizmor betterleaks \
     github:github/gh-actions-lock github:jdx/jactionlint
 mise run setup
 ```
