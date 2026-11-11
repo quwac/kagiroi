@@ -55,6 +55,18 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
+/**
+ * Creates a Hyperdrive database from the connection string supplied by the host binding.
+ * Rejects blank connection strings and validates configuration and codecs before opening a native connection.
+ */
+fun HyperdriveMySqlDatabase(
+    connectionString: String,
+    configure: HyperdriveMySqlDatabaseConfiguration.() -> Unit = {},
+): HyperdriveMySqlDatabase {
+    require(connectionString.isNotBlank()) { "Hyperdrive connection string must not be blank" }
+    return HyperdriveMySqlDatabase.create({ createHyperdriveMySqlEndpoint(connectionString) }, configure)
+}
+
 /** Kagiroi MySQL database backed by a Cloudflare Hyperdrive binding. */
 @Suppress("TooManyFunctions")
 class HyperdriveMySqlDatabase private constructor(
@@ -279,15 +291,13 @@ class HyperdriveMySqlDatabase private constructor(
 
     internal companion object {
         fun create(
-            endpoint: MySqlEndpoint,
+            createEndpoint: () -> MySqlEndpoint,
             configure: HyperdriveMySqlDatabaseConfiguration.() -> Unit = {},
         ): HyperdriveMySqlDatabase {
             val configuration = HyperdriveMySqlDatabaseConfiguration().apply(configure)
-            return HyperdriveMySqlDatabase(
-                endpoint,
-                SqlTypeCodecRegistry(configuration.typeCodecs()),
-                configuration.dialect(),
-            )
+            val codecs = SqlTypeCodecRegistry(configuration.typeCodecs())
+            val dialect = configuration.dialect()
+            return HyperdriveMySqlDatabase(createEndpoint(), codecs, dialect)
         }
     }
 }

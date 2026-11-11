@@ -19,7 +19,7 @@ import kotlin.js.Promise
 fun runHyperdrivePostgresContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
         postgresDriverContract(
-            HyperdrivePostgresDatabase(binding) {
+            HyperdrivePostgresDatabase(binding.connectionString) {
                 install(PostgresKotlinxDateTime)
                 install(PostgresQuwacBigNumber)
             },

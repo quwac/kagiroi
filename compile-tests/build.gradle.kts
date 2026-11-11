@@ -19,6 +19,9 @@ kotlin {
         commonMain {
             kotlin.srcDirs("contracts", "fixtures/$fixture")
             dependencies {
+                implementation(project(":kagiroi-postgres-hyperdrive-driver"))
+                implementation(project(":kagiroi-mysql-hyperdrive-driver"))
+                implementation(project(":kagiroi-d1-driver"))
                 implementation(project(":kagiroi-quwac-bignumber"))
                 implementation(project(":kagiroi-sql"))
                 implementation(project(":kagiroi-kotlinx-datetime"))

@@ -3,7 +3,6 @@
 package dev.quwac.kagiroi.mysql.hyperdrive.integration
 
 import dev.quwac.kagiroi.mariadb.MariaDbDialect
-import dev.quwac.kagiroi.mysql.hyperdrive.CloudflareHyperdriveBinding
 import dev.quwac.kagiroi.mysql.hyperdrive.HyperdriveMySqlDatabase
 import dev.quwac.kagiroi.mysql.hyperdrive.mySqlDriverContract
 import dev.quwac.kagiroi.mysql.hyperdrive.mySqlDriverSmoke
@@ -17,14 +16,13 @@ import kotlin.js.JsExport
 import kotlin.js.JsString
 import kotlin.js.Promise
 import kotlin.js.toJsString
-import kotlin.js.unsafeCast
 
 /** Runs the run hyperdrive my sql contract result. */
 @JsExport
 fun runHyperdriveMySqlContract(binding: JsAny): Promise<JsString> = Promise { resolve, reject ->
     val operation: suspend () -> JsString = {
         mySqlDriverContract(
-            HyperdriveMySqlDatabase(binding.unsafeCast<CloudflareHyperdriveBinding>()) {
+            HyperdriveMySqlDatabase(connectionString(binding)) {
                 install(MySqlKotlinxDateTime)
                 install(MySqlQuwacBigNumber)
             },
@@ -72,14 +70,14 @@ fun runHyperdriveMariaDbSmoke(binding: JsAny): Promise<JsString> = Promise { res
 }
 
 private fun configuredDatabase(binding: JsAny) = HyperdriveMySqlDatabase(
-    binding.unsafeCast<CloudflareHyperdriveBinding>(),
+    connectionString(binding),
 ) {
     install(MySqlKotlinxDateTime)
     install(MySqlQuwacBigNumber)
 }
 
 private fun configuredMariaDbDatabase(binding: JsAny) = HyperdriveMySqlDatabase(
-    binding.unsafeCast<CloudflareHyperdriveBinding>(),
+    connectionString(binding),
 ) {
     install(MySqlKotlinxDateTime)
     install(MySqlQuwacBigNumber)
@@ -99,3 +97,6 @@ fun main() = Unit
 
 @Suppress("UnusedParameter")
 private fun jsError(message: String): JsAny = js("new Error(message)")
+
+@Suppress("UnusedParameter")
+private fun connectionString(binding: JsAny): String = js("binding.connectionString")

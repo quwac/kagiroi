@@ -13,7 +13,19 @@ external interface CloudflareD1Binding
 
 /** Provides the d1 database result. */
 fun D1Database(binding: CloudflareD1Binding, configure: D1DatabaseConfiguration.() -> Unit = {}): D1Database =
-    D1Database.create(JsD1Endpoint(binding.asDynamic()), configure)
+    D1Database(D1Binding(binding), configure)
+
+@Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+internal actual fun createD1Endpoint(native: Any): D1Endpoint {
+    val value = native.asDynamic()
+    require(isD1Binding(value)) { "Expected a native D1 binding with prepare and batch operations" }
+    return JsD1Endpoint(value)
+}
+
+@Suppress("UnusedParameter")
+private fun isD1Binding(value: dynamic): Boolean = js(
+    "value !== null && typeof value === 'object' && typeof value.prepare === 'function' && typeof value.batch === 'function'",
+)
 
 private open class JsD1Endpoint(private val native: dynamic) : D1Endpoint {
     override suspend fun execute(statement: D1Statement): D1ExecuteMetadata = translate(D1FailureKind.EXECUTION) {

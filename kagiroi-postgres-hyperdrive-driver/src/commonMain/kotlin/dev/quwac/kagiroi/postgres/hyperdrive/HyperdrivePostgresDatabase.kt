@@ -53,6 +53,15 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
+/** Creates a Hyperdrive database from the connection string supplied by the host binding. */
+fun HyperdrivePostgresDatabase(
+    connectionString: String,
+    configure: HyperdrivePostgresDatabaseConfiguration.() -> Unit = {},
+): HyperdrivePostgresDatabase {
+    require(connectionString.isNotBlank()) { "Hyperdrive connection string must not be blank" }
+    return HyperdrivePostgresDatabase.create(createHyperdrivePostgresEndpoint(connectionString), configure)
+}
+
 /** Kagiroi PostgreSQL database backed by a Cloudflare Hyperdrive binding. */
 @Suppress("TooManyFunctions")
 class HyperdrivePostgresDatabase private constructor(
