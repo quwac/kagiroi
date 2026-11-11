@@ -10,20 +10,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.js.Promise
 
-/** The Cloudflare Workers Hyperdrive binding passed through an environment object. */
-external interface CloudflareHyperdriveBinding {
-    /** Value associated with connection string. */
-    val connectionString: String
-}
-
-/** Provides the hyperdrive postgres database result. */
-fun HyperdrivePostgresDatabase(
-    binding: CloudflareHyperdriveBinding,
-    configure: HyperdrivePostgresDatabaseConfiguration.() -> Unit = {},
-): HyperdrivePostgresDatabase = HyperdrivePostgresDatabase.create(
-    JsPostgresEndpoint(binding.connectionString),
-    configure,
-)
+internal actual fun createHyperdrivePostgresEndpoint(connectionString: String): PostgresEndpoint =
+    JsPostgresEndpoint(connectionString)
 
 @JsModule("pg")
 @JsNonModule

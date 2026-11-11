@@ -17,7 +17,9 @@ kotlin {
         }
     }
     wasmJs {
-        nodejs()
+        nodejs {
+            testTask { useMocha { timeout = "30s" } }
+        }
     }
     sourceSets {
         commonMain.dependencies {
@@ -30,6 +32,9 @@ kotlin {
                 implementation(kotlin("test"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
             }
+        }
+        wasmJsTest.dependencies {
+            implementation(npm("miniflare", "5.20261012.0-beta"))
         }
         jsTest.dependencies {
             implementation(npm("miniflare", "5.20261012.0-beta"))

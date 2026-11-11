@@ -25,3 +25,21 @@ internal fun isUint8Array(value: JsAny): Boolean = js("value instanceof Uint8Arr
 internal fun numberString(value: JsAny): String = js("String(value)")
 
 internal fun booleanValue(value: JsAny): Boolean = js("value === true")
+
+internal fun connectionStringConfig(connectionString: String): JsAny =
+    connectionConfig(connectionBinding(connectionString))
+
+@Suppress("UnusedParameter")
+private fun connectionBinding(connectionString: String): CloudflareHyperdriveBinding = js(
+    """(() => {
+        const url = new URL(connectionString);
+        if (url.protocol !== 'mysql:') throw new Error('Expected a Hyperdrive MySQL connection string');
+        return {
+            host: url.hostname.replace(/^\[|\]$/g, ''),
+            user: decodeURIComponent(url.username),
+            password: decodeURIComponent(url.password),
+            database: decodeURIComponent(url.pathname.slice(1)),
+            port: Number(url.port || 3306)
+        };
+    })()""",
+)

@@ -22,20 +22,8 @@ import kotlin.js.toJsNumber
 import kotlin.js.toJsString
 import kotlin.js.unsafeCast
 
-/** The Cloudflare Workers Hyperdrive binding passed through an environment object. */
-external interface CloudflareHyperdriveBinding : JsAny {
-    /** Value associated with connection string. */
-    val connectionString: String
-}
-
-/** Provides the hyperdrive postgres database result. */
-fun HyperdrivePostgresDatabase(
-    binding: CloudflareHyperdriveBinding,
-    configure: HyperdrivePostgresDatabaseConfiguration.() -> Unit = {},
-): HyperdrivePostgresDatabase = HyperdrivePostgresDatabase.create(
-    WasmPostgresEndpoint(binding.connectionString),
-    configure,
-)
+internal actual fun createHyperdrivePostgresEndpoint(connectionString: String): PostgresEndpoint =
+    WasmPostgresEndpoint(connectionString)
 
 @JsModule("pg")
 private external object PostgresModule : JsAny {

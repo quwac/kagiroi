@@ -4,6 +4,7 @@ import dev.quwac.kagiroi.mariadb.MariaDbDialect
 import dev.quwac.kagiroi.mysql.MySqlBinding
 import dev.quwac.kagiroi.mysql.MySqlResultValue
 import dev.quwac.kagiroi.mysql.MySqlScalar
+import dev.quwac.kagiroi.mysql.MySqlStandardTypes
 import dev.quwac.kagiroi.mysql.MySqlType
 import dev.quwac.kagiroi.schema.Table
 import dev.quwac.kagiroi.schema.nullable
@@ -39,13 +40,70 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.uuid.Uuid
 
 class HyperdriveMySqlDatabaseTest {
     @Test
+    fun rejectsBlankConnectionStringsBeforeOpeningNativeConnections() {
+        assertFailsWith<IllegalArgumentException> { HyperdriveMySqlDatabase(" ") }
+    }
+
+    @Test
+    fun doesNotOpenConnectionWhenConfigurationFails() {
+        val failure = IllegalArgumentException("configuration")
+        var connections = 0
+        val actual = assertFailsWith<IllegalArgumentException> {
+            HyperdriveMySqlDatabase.create({
+                connections++
+                FakeMySqlEndpoint()
+            }) { throw failure }
+        }
+        assertSame(failure, actual)
+        assertEquals(0, connections)
+    }
+
+    @Test
+    fun doesNotOpenConnectionWhenCodecValidationFails() {
+        var connections = 0
+        assertFailsWith<IllegalArgumentException> {
+            HyperdriveMySqlDatabase.create({
+                connections++
+                FakeMySqlEndpoint()
+            }) {
+                install(MySqlStandardTypes)
+            }
+        }
+        assertEquals(0, connections)
+    }
+
+    @Test
+    fun configuresBeforeOpeningConnection() = runTest {
+        val events = mutableListOf<String>()
+        val database = HyperdriveMySqlDatabase.create({
+            events += "connect"
+            FakeMySqlEndpoint()
+        }) {
+            events += "configure"
+            dialect(MariaDbDialect)
+        }
+        assertEquals(listOf("configure", "connect"), events)
+        database.close()
+    }
+
+    @Test
+    fun commonFactoryConfiguresBeforeParsingTheNativeConnection() {
+        val failure = IllegalArgumentException("configuration")
+        val actual = assertFailsWith<IllegalArgumentException> {
+            HyperdriveMySqlDatabase("invalid connection string") { throw failure }
+        }
+        assertSame(failure, actual)
+    }
+
+    @Test
     fun rendersNestedPaginationAsValidatedLiteralsForTheHyperdriveTransport() {
-        val database = HyperdriveMySqlDatabase.create(FakeMySqlEndpoint())
+        val database = HyperdriveMySqlDatabase.create({ FakeMySqlEndpoint() })
         val latestId = select(Users.id).from(Users).limit(1).scalar()
 
         val rendered = SqlRenderer(database.dialect).render(select(Users.id, latestId).from(Users))
@@ -60,7 +118,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun rendersNativeMariaDbUuidThroughTheSharedHyperdriveAdapter() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint) {
+        val database = HyperdriveMySqlDatabase.create({ endpoint }) {
             dialect(MariaDbDialect)
         }
 
@@ -76,7 +134,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun executesTypedDdlAsRenderedMySqlSql() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
 
         database.execute(createTable(Users))
 
@@ -90,7 +148,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun executesTypedQueriesWithMySqlBindingsAndRows() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
         val id = Uuid.parse("123e4567-e89b-12d3-a456-426614174000")
         endpoint.queryResult = MySqlRows(
             listOf("id", "active", "payload", "nickname"),
@@ -121,7 +179,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun mapsAffectedRowsAndKeepsRawExecutionParameterized() = runTest {
         val endpoint = FakeMySqlEndpoint(commandResult = MySqlCommandResult(2))
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
 
         val result = database.update(Users) { set(Users.active, false) }
             .where(Users.id eq Uuid.parse("123e4567-e89b-12d3-a456-426614174000"))
@@ -136,7 +194,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun commitsRollsBackAndAppliesExplicitIsolation() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
 
         database.transaction(isolation = TransactionIsolation.SERIALIZABLE) {
             executeRaw("UPDATE users SET active = ?", listOf(true))
@@ -171,7 +229,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun rollsBackBeforePropagatingCancellation() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
         val transaction = launch { database.transaction { awaitCancellation() } }
         yield()
 
@@ -183,7 +241,7 @@ class HyperdriveMySqlDatabaseTest {
     @Test
     fun mapsVendorErrorsWithoutRetrying() = runTest {
         val endpoint = FakeMySqlEndpoint()
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
 
         endpoint.failure = failure("23000", "ER_DUP_ENTRY", 1062)
         val unique = assertFailsWith<ConstraintViolation> { database.executeRaw("INSERT") }
@@ -221,7 +279,7 @@ class HyperdriveMySqlDatabaseTest {
 
     @Test
     fun reportsOnlyImplementedCapabilities() {
-        val database = HyperdriveMySqlDatabase.create(FakeMySqlEndpoint())
+        val database = HyperdriveMySqlDatabase.create({ FakeMySqlEndpoint() })
 
         assertNotNull(database.capability(SqlCapabilities.Sql))
         assertNotNull(database.capability(SqlCapabilities.Transactions))
@@ -240,7 +298,7 @@ class HyperdriveMySqlDatabaseTest {
                 listOf(listOf(MySqlResultValue(MySqlType.TINYINT.protocolType, MySqlScalar.Number("1")))),
             ),
         )
-        val database = HyperdriveMySqlDatabase.create(endpoint)
+        val database = HyperdriveMySqlDatabase.create({ endpoint })
         val flow = database.queryRaw("SELECT active FROM users")
 
         assertEquals(0, endpoint.queryAttempts)

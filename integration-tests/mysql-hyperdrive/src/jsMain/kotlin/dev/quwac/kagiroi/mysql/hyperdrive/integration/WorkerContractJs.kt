@@ -3,7 +3,6 @@
 package dev.quwac.kagiroi.mysql.hyperdrive.integration
 
 import dev.quwac.kagiroi.mariadb.MariaDbDialect
-import dev.quwac.kagiroi.mysql.hyperdrive.CloudflareHyperdriveBinding
 import dev.quwac.kagiroi.mysql.hyperdrive.HyperdriveMySqlDatabase
 import dev.quwac.kagiroi.mysql.hyperdrive.mySqlDriverContract
 import dev.quwac.kagiroi.mysql.hyperdrive.mySqlDriverSmoke
@@ -18,10 +17,10 @@ import kotlin.js.Promise
 
 /** Runs the run hyperdrive my sql contract result. */
 @JsExport
-fun runHyperdriveMySqlContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
+fun runHyperdriveMySqlContract(binding: dynamic): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
         mySqlDriverContract(
-            HyperdriveMySqlDatabase(binding) {
+            HyperdriveMySqlDatabase(connectionString(binding)) {
                 install(MySqlKotlinxDateTime)
                 install(MySqlQuwacBigNumber)
             },
@@ -40,7 +39,7 @@ fun runHyperdriveMySqlContract(binding: CloudflareHyperdriveBinding): Promise<St
 
 /** Runs the run hyperdrive my sql smoke result. */
 @JsExport
-fun runHyperdriveMySqlSmoke(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
+fun runHyperdriveMySqlSmoke(binding: dynamic): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
         mySqlDriverSmoke(configuredDatabase(binding), ::println)
         "ok"
@@ -50,7 +49,7 @@ fun runHyperdriveMySqlSmoke(binding: CloudflareHyperdriveBinding): Promise<Strin
 
 /** Runs the run hyperdrive maria db contract result. */
 @JsExport
-fun runHyperdriveMariaDbContract(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
+fun runHyperdriveMariaDbContract(binding: dynamic): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
         mySqlDriverContract(configuredMariaDbDatabase(binding), ::println)
         "ok"
@@ -60,7 +59,7 @@ fun runHyperdriveMariaDbContract(binding: CloudflareHyperdriveBinding): Promise<
 
 /** Runs the run hyperdrive maria db smoke result. */
 @JsExport
-fun runHyperdriveMariaDbSmoke(binding: CloudflareHyperdriveBinding): Promise<String> = Promise { resolve, reject ->
+fun runHyperdriveMariaDbSmoke(binding: dynamic): Promise<String> = Promise { resolve, reject ->
     val operation: suspend () -> String = {
         mySqlDriverSmoke(configuredMariaDbDatabase(binding), ::println)
         "ok"
@@ -68,12 +67,12 @@ fun runHyperdriveMariaDbSmoke(binding: CloudflareHyperdriveBinding): Promise<Str
     operation.startCoroutine(completion(resolve, reject))
 }
 
-private fun configuredDatabase(binding: CloudflareHyperdriveBinding) = HyperdriveMySqlDatabase(binding) {
+private fun configuredDatabase(binding: dynamic) = HyperdriveMySqlDatabase(connectionString(binding)) {
     install(MySqlKotlinxDateTime)
     install(MySqlQuwacBigNumber)
 }
 
-private fun configuredMariaDbDatabase(binding: CloudflareHyperdriveBinding) = HyperdriveMySqlDatabase(binding) {
+private fun configuredMariaDbDatabase(binding: dynamic) = HyperdriveMySqlDatabase(connectionString(binding)) {
     install(MySqlKotlinxDateTime)
     install(MySqlQuwacBigNumber)
     dialect(MariaDbDialect.configured(listOf(MySqlKotlinxDateTime, MySqlQuwacBigNumber)))
@@ -92,3 +91,6 @@ fun main() = Unit
 
 @Suppress("UnusedParameter")
 private fun jsError(message: String): Throwable = js("new Error(message)")
+
+@Suppress("UnusedParameter")
+private fun connectionString(binding: dynamic): String = js("binding.connectionString")

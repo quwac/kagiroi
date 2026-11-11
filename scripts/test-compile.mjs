@@ -15,6 +15,10 @@ function parseShardValue(name, fallback) {
 }
 
 const cases = [
+  ["CommonDriversPositive", []],
+  ["WrongCommonDrivers", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
+  ["HyperdrivePositive", []],
+  ["WrongHyperdriveConnection", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
   ["KagiroiPositive", []],
   ["IdentityOptionsPositive", []],
   ["KagiroiAlterTablePositive", []],

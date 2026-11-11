@@ -29,11 +29,17 @@ external interface CloudflareHyperdriveBinding {
     val port: Int
 }
 
-/** Provides the hyperdrive my sql database result. */
+/** Validates configuration and codecs before opening a connection from [binding]. */
 fun HyperdriveMySqlDatabase(
     binding: CloudflareHyperdriveBinding,
     configure: HyperdriveMySqlDatabaseConfiguration.() -> Unit = {},
-): HyperdriveMySqlDatabase = HyperdriveMySqlDatabase.create(JsMySqlEndpoint(binding), configure)
+): HyperdriveMySqlDatabase = HyperdriveMySqlDatabase.create(
+    { JsMySqlEndpoint(MySqlModule.createConnection(connectionConfig(binding))) },
+    configure,
+)
+
+internal actual fun createHyperdriveMySqlEndpoint(connectionString: String): MySqlEndpoint =
+    JsMySqlEndpoint(MySqlModule.createConnection(connectionStringConfig(connectionString)))
 
 @JsModule("mysql2/promise")
 @JsNonModule
@@ -59,8 +65,7 @@ private external interface NativeMySqlConnection {
 
 private data class JsMySqlResult(val first: dynamic, val second: dynamic)
 
-private class JsMySqlEndpoint(binding: CloudflareHyperdriveBinding) : MySqlEndpoint {
-    private val connected = MySqlModule.createConnection(connectionConfig(binding))
+private class JsMySqlEndpoint(private val connected: Promise<NativeMySqlConnection>) : MySqlEndpoint {
 
     override suspend fun execute(statement: MySqlStatement): MySqlCommandResult =
         translate(MySqlFailureKind.EXECUTION) {
@@ -164,14 +169,6 @@ private suspend fun <T> Promise<T>.await(): T = suspendCancellableCoroutine { co
         null
     }
 }
-
-@Suppress("UnusedParameter")
-private fun connectionConfig(binding: CloudflareHyperdriveBinding): dynamic = js(
-    "({ host: binding.host, user: binding.user, password: binding.password, database: binding.database, " +
-        "port: binding.port, disableEval: true, rowsAsArray: true, supportBigNumbers: true, " +
-        "bigNumberStrings: true, jsonStrings: true, dateStrings: true, timezone: 'Z', " +
-        "typeCast: (field, next) => field.type === 'GEOMETRY' ? field.buffer() : next() })",
-)
 
 @Suppress("UnusedParameter")
 private fun isUint8Array(value: dynamic): Boolean = js("value instanceof Uint8Array")

@@ -3,72 +3,22 @@
 package dev.quwac.kagiroi.d1
 
 import dev.quwac.kagiroi.sqlite.SqlitePhysicalValue
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.js.Promise
 
-/**
- * Opens Cloudflare D1 through its account API for administrative tools running on Node.js or Bun.
- *
- * Application code running in a Worker should use [D1Database] with a [CloudflareD1Binding]
- * instead. The HTTP API has no D1 Session equivalent.
- */
-fun d1HttpDatabase(
-    accountId: String,
-    databaseId: String,
-    apiToken: String,
-    configure: D1DatabaseConfiguration.() -> Unit = {},
-): D1Database {
-    require(accountId.isNotBlank()) { "D1 account ID must not be blank" }
-    require(databaseId.isNotBlank()) { "D1 database ID must not be blank" }
-    require(apiToken.isNotBlank()) { "D1 API token must not be blank" }
-    return D1Database.create(D1HttpEndpoint(accountId, databaseId, apiToken), configure)
-}
-
-private class D1HttpEndpoint(accountId: String, databaseId: String, private val apiToken: String) : D1Endpoint {
-    private val url = "https://api.cloudflare.com/client/v4/accounts/$accountId/d1/database/$databaseId/query"
-
-    override val supportsSessions: Boolean = false
-
-    override suspend fun execute(statement: D1Statement): D1ExecuteMetadata {
-        val result = single(statement)
+internal actual suspend fun requestD1Http(
+    url: String,
+    token: String,
+    statements: List<D1Statement>,
+    batch: Boolean,
+): List<D1HttpResult> {
+    val body = if (batch) batchBody(statements) else singleBody(statements.single())
+    val results = requestJson(url, token, body).await() as Array<dynamic>
+    return results.map { result ->
         requireStatementSuccess(result)
-        return metadata(result.meta)
-    }
-
-    override suspend fun query(statement: D1Statement): D1RawRows = rawRows(single(statement))
-
-    override suspend fun batch(statements: List<D1Statement>): List<D1BatchOutcome> {
-        require(statements.isNotEmpty()) { "D1 batch must not be empty" }
-        val results = request(batchBody(statements))
-        return (results as Array<dynamic>).map { result ->
-            requireStatementSuccess(result)
-            D1BatchOutcome(metadata(result.meta), rawRowsOrNull(result))
-        }
-    }
-
-    override fun session(start: D1SessionStart): D1SessionEndpoint =
-        throw UnsupportedOperationException("D1 HTTP API does not support D1 Sessions")
-
-    private suspend fun single(statement: D1Statement): dynamic {
-        val results = request(singleBody(statement)) as Array<dynamic>
-        return results.singleOrNull() ?: throw D1DriverException(
-            D1FailureKind.EXECUTION,
-            null,
-            "D1 HTTP API returned an unexpected number of query results",
-        )
-    }
-
-    private suspend fun request(body: dynamic): dynamic = try {
-        requestJson(url, apiToken, body).await()
-    } catch (error: CancellationException) {
-        throw error
-    } catch (error: D1DriverException) {
-        throw error
-    } catch (error: Throwable) {
-        throw D1DriverException(D1FailureKind.EXECUTION, null, error.message ?: "D1 HTTP request failed", error)
+        D1HttpResult(metadata(result.meta), rawRows(result))
     }
 }
 

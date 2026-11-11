@@ -34,3 +34,5 @@ internal interface PostgresEndpoint {
 
     suspend fun close()
 }
+
+internal expect fun createHyperdrivePostgresEndpoint(connectionString: String): PostgresEndpoint

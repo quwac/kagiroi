@@ -27,7 +27,19 @@ external interface CloudflareD1Binding : JsAny
 
 /** Provides the d1 database result. */
 fun D1Database(binding: CloudflareD1Binding, configure: D1DatabaseConfiguration.() -> Unit = {}): D1Database =
-    D1Database.create(WasmD1Endpoint(binding.unsafeCast()), configure)
+    D1Database(D1Binding(binding), configure)
+
+@Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+internal actual fun createD1Endpoint(native: Any): D1Endpoint {
+    val value = native as JsAny
+    require(isD1Binding(value)) { "Expected a native D1 binding with prepare and batch operations" }
+    return WasmD1Endpoint(value.unsafeCast<NativeD1Endpoint>())
+}
+
+@Suppress("UnusedParameter")
+private fun isD1Binding(value: JsAny): Boolean = js(
+    "value !== null && typeof value === 'object' && typeof value.prepare === 'function' && typeof value.batch === 'function'",
+)
 
 private external interface NativeD1Endpoint : JsAny {
     fun prepare(query: String): NativeD1Statement

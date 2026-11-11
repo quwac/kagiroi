@@ -1180,3 +1180,74 @@ connects to a database nor generates SQL.
 
 - [Kagiroi type mappings](TYPE_MAPPINGS.md): Kotlin types and database storage mappings.
 - [Kagiroi README](../README.md): drivers, supported hosts, and Typed DDL scope.
+
+## Connections from common code
+
+Connection factories and configuration belong in `commonMain` on JS and Wasm.
+Native clients, binding operations, and Fetch interop stay inside drivers.
+
+### Hyperdrive
+
+Both drivers accept the connection string supplied by the host's Hyperdrive binding:
+
+```kotlin
+import dev.quwac.kagiroi.postgres.hyperdrive.HyperdrivePostgresDatabase
+import dev.quwac.kagiroi.mysql.hyperdrive.HyperdriveMySqlDatabase
+
+val postgres = HyperdrivePostgresDatabase(postgresConnectionString)
+val mysql = HyperdriveMySqlDatabase(mysqlConnectionString)
+```
+
+The MySQL driver reads host, port, user, password, and database from the binding URI.
+URI query options are not forwarded to mysql2; the driver retains its required Workers and value-conversion options.
+Configure origin TLS and pooling in Hyperdrive, as in the
+[Cloudflare mysql2 example](https://developers.cloudflare.com/hyperdrive/examples/connect-to-mysql/#mysql2).
+
+For MariaDB, use `HyperdriveMySqlDatabase(connectionString) { dialect(MariaDbDialect) }`
+with `dev.quwac.kagiroi.mariadb.MariaDbDialect`.
+Acquire and close each database within a single request; do not share its physical connection
+across Workers requests. Target-specific factories accepting `CloudflareHyperdriveBinding`
+remain available for native integrations.
+
+### D1 Workers bindings
+
+`D1Binding` is a common typed handle for a native D1 object.
+Its constructor validates the required `prepare` and `batch` operations without serializing the object.
+The opaque `Any` input belongs at the host boundary; application dependencies use `D1Binding` or `D1Database`.
+
+```kotlin
+import dev.quwac.kagiroi.d1.D1Binding
+import dev.quwac.kagiroi.d1.D1Database
+
+fun database(binding: D1Binding): D1Database = D1Database(binding)
+```
+
+Koyane's common environment conversion can construct the handle directly:
+
+```kotlin
+import dev.quwac.kagiroi.d1.D1Binding
+import dev.quwac.kagiroi.d1.D1Database
+import dev.quwac.koyane.core.koyane
+import dev.quwac.koyane.http.Http
+import dev.quwac.koyane.cloudflare.workers.cloudflareWorker
+import kotlinx.coroutines.flow.single
+
+fun main() {
+    cloudflareWorker { environment ->
+        val database = resource({ D1Database(environment.get("DB", ::D1Binding)) }) { it.close() }
+        koyane { install(Http) { get("/health") { database.queryRaw("SELECT 1").single(); text("ready") } } }
+    }
+}
+```
+
+The JavaScript host forwards the request and environment; no application Kotlin is required in `jsMain`.
+Kagiroi and Koyane have no dependency on each other.
+D1 batch and session behavior is unchanged; interactive transactions remain unsupported.
+
+### D1 account HTTP API
+
+`d1HttpDatabase(accountId, databaseId, apiToken)` is available from `commonMain` on JS and Wasm.
+It uses the host Fetch API and supports query results, execution metadata, and batches.
+It does not offer D1 Sessions or interactive transactions, and blob bindings and results are unsupported.
+Keep the token at the application boundary and close the database when its owner finishes.
+Use the native binding API inside Workers.

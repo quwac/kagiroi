@@ -40,11 +40,17 @@ external interface CloudflareHyperdriveBinding : JsAny {
     val port: Int
 }
 
-/** Provides the hyperdrive my sql database result. */
+/** Validates configuration and codecs before opening a connection from [binding]. */
 fun HyperdriveMySqlDatabase(
     binding: CloudflareHyperdriveBinding,
     configure: HyperdriveMySqlDatabaseConfiguration.() -> Unit = {},
-): HyperdriveMySqlDatabase = HyperdriveMySqlDatabase.create(WasmMySqlEndpoint(binding), configure)
+): HyperdriveMySqlDatabase = HyperdriveMySqlDatabase.create(
+    { WasmMySqlEndpoint(MySqlModule.createConnection(connectionConfig(binding))) },
+    configure,
+)
+
+internal actual fun createHyperdriveMySqlEndpoint(connectionString: String): MySqlEndpoint =
+    WasmMySqlEndpoint(MySqlModule.createConnection(connectionStringConfig(connectionString)))
 
 @JsModule("mysql2/promise")
 private external object MySqlModule : JsAny {
@@ -71,8 +77,7 @@ internal external interface NativeMySqlField : JsAny {
     val columnType: Int
 }
 
-private class WasmMySqlEndpoint(binding: CloudflareHyperdriveBinding) : MySqlEndpoint {
-    private val connected = MySqlModule.createConnection(connectionConfig(binding))
+private class WasmMySqlEndpoint(private val connected: Promise<NativeMySqlConnection>) : MySqlEndpoint {
 
     override suspend fun execute(statement: MySqlStatement): MySqlCommandResult =
         translate(MySqlFailureKind.EXECUTION) {

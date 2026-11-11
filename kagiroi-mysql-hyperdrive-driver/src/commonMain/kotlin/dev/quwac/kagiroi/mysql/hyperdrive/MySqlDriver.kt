@@ -32,3 +32,5 @@ internal interface MySqlEndpoint {
 
     suspend fun close()
 }
+
+internal expect fun createHyperdriveMySqlEndpoint(connectionString: String): MySqlEndpoint
