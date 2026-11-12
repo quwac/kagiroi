@@ -737,6 +737,12 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         return execution.nextSequenceValue(sequence)
     }
 
+    /** Applies native security objects after the referenced tables have been created. */
+    suspend fun createSecurityObjects(registry: dev.quwac.kagiroi.schema.SchemaRegistry) {
+        execution.executeSecurity(registry.createSecurityObjects())
+        executedOperation = true
+    }
+
     internal fun requireExecution() {
         require(executedOperation) {
             "DDL execution requires at least one DDL statement or sequence read"

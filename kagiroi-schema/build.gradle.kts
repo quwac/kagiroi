@@ -16,7 +16,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":kagiroi-core"))
-            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
+            api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

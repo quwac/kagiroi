@@ -22,6 +22,8 @@ import dev.quwac.kagiroi.sql.RawSqlRow
 import dev.quwac.kagiroi.sql.RenderedSql
 import dev.quwac.kagiroi.sql.ResultConversionFailure
 import dev.quwac.kagiroi.sql.ReturningCapability
+import dev.quwac.kagiroi.sql.RlsContextConnectionGuard
+import dev.quwac.kagiroi.sql.RlsContextGuard
 import dev.quwac.kagiroi.sql.SavepointCapability
 import dev.quwac.kagiroi.sql.SavepointController
 import dev.quwac.kagiroi.sql.SavepointScope
@@ -231,7 +233,9 @@ class HyperdrivePostgresDatabase private constructor(
         if (closed) throw DatabaseClosed()
     }
 
-    private inner class TransactionScope : SqlTransaction {
+    private inner class TransactionScope(val rlsGuard: RlsContextGuard = RlsContextGuard()) :
+        SqlTransaction,
+        RlsContextConnectionGuard by rlsGuard {
         override val dialect = this@HyperdrivePostgresDatabase.dialect
         var active = true
         private val savepoints = SavepointSupport(

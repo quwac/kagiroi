@@ -322,6 +322,11 @@ private class SqliteDdlRenderer(private val types: SqliteTypeRegistry) {
 
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.SecurityDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "native security",
+                "unsupported dialect",
+            )
+
             is CreateTable -> renderCreateTable(dialect, statement)
 
             is CreateSequence -> unsupported("SQLite CREATE SEQUENCE", "SQLite has no independent sequence objects")

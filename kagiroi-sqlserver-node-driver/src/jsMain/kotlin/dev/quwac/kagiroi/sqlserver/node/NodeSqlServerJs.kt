@@ -99,6 +99,23 @@ private class JsDedicatedSqlServerSession(private val connection: dynamic) : Nod
 }
 
 private class JsNodeSqlServerTransaction(private val transaction: dynamic) : NodeSqlServerTransaction {
+    private var protected = false
+    override fun protectRlsConnection() {
+        if (!protected) {
+            protectContextConnection(transaction)
+            protected = true
+        }
+    }
+
+    override fun releaseRlsConnectionProtection() {
+        releaseContextConnectionProtection(transaction)
+        protected = false
+    }
+
+    override suspend fun discard() {
+        discardContextConnection(transaction)
+    }
+
     override suspend fun execute(statement: SqlServerStatement): SqlServerCommandResult {
         val result = requestResult(transaction.request(), statement)
         return SqlServerCommandResult(affectedRows(result))
@@ -424,3 +441,26 @@ private fun parameterName(index: Int): String = "kb" + (index + 1)
 
 private const val BYTE_MASK = 0xff
 private val ERROR_ATTRIBUTES = listOf("number", "state", "class", "serverName", "procName", "lineNumber")
+
+@Suppress("UnusedParameter")
+private fun protectContextConnection(transaction: dynamic) {
+    js(
+        """
+      const connection = transaction._acquiredConnection;
+      if (!connection) throw new Error('RLS context requires an active physical transaction');
+      transaction.__kagiroiRlsConnection = connection;
+      transaction.__kagiroiRlsAbort = () => { if (!transaction._rollbackRequested) connection.close(); };
+      connection.prependOnceListener('rollbackTransaction', transaction.__kagiroiRlsAbort);
+    """,
+    )
+}
+
+@Suppress("UnusedParameter")
+private fun discardContextConnection(transaction: dynamic) {
+    js("(transaction.__kagiroiRlsConnection || transaction._acquiredConnection).close()")
+}
+
+@Suppress("UnusedParameter")
+private fun releaseContextConnectionProtection(transaction: dynamic) {
+    js("transaction.__kagiroiRlsConnection.removeListener('rollbackTransaction', transaction.__kagiroiRlsAbort)")
+}

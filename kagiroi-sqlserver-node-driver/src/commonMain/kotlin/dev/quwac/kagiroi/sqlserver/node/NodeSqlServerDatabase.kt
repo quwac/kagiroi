@@ -23,6 +23,8 @@ import dev.quwac.kagiroi.sql.OutputCapability
 import dev.quwac.kagiroi.sql.RawSqlRow
 import dev.quwac.kagiroi.sql.RenderedSql
 import dev.quwac.kagiroi.sql.ResultConversionFailure
+import dev.quwac.kagiroi.sql.RlsContextConnectionGuard
+import dev.quwac.kagiroi.sql.RlsContextGuard
 import dev.quwac.kagiroi.sql.SavepointCapability
 import dev.quwac.kagiroi.sql.SavepointController
 import dev.quwac.kagiroi.sql.SavepointScope
@@ -298,14 +300,17 @@ class NodeSqlServerDatabase private constructor(
             }
         }
         val execution = SqlServerExecution(transaction, typeCodecs)
-        val scope = TransactionScope(execution)
+        val scope = TransactionScope(
+            execution,
+            RlsContextGuard(transaction::protectRlsConnection, transaction::releaseRlsConnectionProtection),
+        )
         var transactionStarted = true
         try {
             currentCoroutineContext().ensureActive()
             val result = try {
                 withContext((inherited ?: ActiveNodeSqlServerTransactions()).including(this)) { scope.block() }
             } catch (error: Throwable) {
-                withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                withContext(NonCancellable) { rollbackAfter(transaction, error, scope.rlsGuard) }
                 transactionStarted = false
                 throw error
             }
@@ -319,7 +324,7 @@ class NodeSqlServerDatabase private constructor(
                 currentCoroutineContext().ensureActive()
             } catch (error: Throwable) {
                 if (!committed) {
-                    withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                    withContext(NonCancellable) { rollbackAfter(transaction, error, scope.rlsGuard) }
                     transactionStarted = false
                 }
                 when (error) {
@@ -336,7 +341,7 @@ class NodeSqlServerDatabase private constructor(
             return result
         } catch (error: Throwable) {
             if (transactionStarted) {
-                withContext(NonCancellable) { rollbackAfter(transaction, error) }
+                withContext(NonCancellable) { rollbackAfter(transaction, error, scope.rlsGuard) }
                 transactionStarted = false
             }
             throw error
@@ -361,7 +366,14 @@ class NodeSqlServerDatabase private constructor(
         }
     }
 
-    private suspend fun rollbackAfter(transaction: NodeSqlServerTransaction, original: Throwable) {
+    private suspend fun rollbackAfter(
+        transaction: NodeSqlServerTransaction,
+        original: Throwable,
+        rlsGuard: RlsContextGuard,
+    ) {
+        if (rlsGuard.requiresDiscard) {
+            runCatching { transaction.discard() }.exceptionOrNull()?.let(original::addSuppressed)
+        }
         try {
             transaction.rollback()
         } catch (rollback: Throwable) {
@@ -394,7 +406,11 @@ class NodeSqlServerDatabase private constructor(
         if (closed) throw DatabaseClosed()
     }
 
-    private inner class TransactionScope(private val execution: SqlServerExecution) : SqlTransaction {
+    private inner class TransactionScope(
+        private val execution: SqlServerExecution,
+        val rlsGuard: RlsContextGuard = RlsContextGuard(),
+    ) : SqlTransaction,
+        RlsContextConnectionGuard by rlsGuard {
         override val dialect = this@NodeSqlServerDatabase.dialect
         var active = true
         private val savepoints = SavepointSupport(
@@ -412,6 +428,7 @@ class NodeSqlServerDatabase private constructor(
 
         override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
             requireActive()
+            requireUsable()
             execution.queryRows(statement, columns).forEach {
                 currentCoroutineContext().ensureActive()
                 emit(it)
@@ -423,13 +440,17 @@ class NodeSqlServerDatabase private constructor(
 
         override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
             requireActive()
+            requireUsable()
             execution.queryRawRows(sql, parameters).forEach {
                 currentCoroutineContext().ensureActive()
                 emit(it)
             }
         }
 
-        fun requireUsable() = savepoints.requireUsable()
+        fun requireUsable() {
+            rlsGuard.requireUsable()
+            savepoints.requireUsable()
+        }
 
         private suspend fun <T> inScope(block: suspend () -> T): T {
             requireActive()

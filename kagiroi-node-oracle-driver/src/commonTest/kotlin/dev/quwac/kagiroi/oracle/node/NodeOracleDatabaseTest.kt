@@ -20,6 +20,7 @@ import dev.quwac.kagiroi.sql.SqlStreamingMode
 import dev.quwac.kagiroi.sql.TransactionIsolation
 import dev.quwac.kagiroi.sql.eq
 import dev.quwac.kagiroi.sql.insertInto
+import dev.quwac.kagiroi.sql.rlsContext
 import dev.quwac.kagiroi.sql.select
 import dev.quwac.kagiroi.sql.transaction
 import dev.quwac.kagiroi.sql.values
@@ -31,10 +32,56 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.uuid.Uuid
 
 class NodeOracleDatabaseTest {
+    @Test
+    fun rlsCleanupKeepsOriginalFailureWhenSessionDiscardAlsoFails() = runTest {
+        val pool = FakeNodeOraclePool().apply { releaseFailure = IllegalStateException("discard failed") }
+        val database = NodeOracleDatabase.create(pool)
+        val adapter = object : dev.quwac.kagiroi.sql.RlsContextAdapter {
+            override val transactionLocal: Boolean = false
+            override fun validate(values: List<Pair<String, Any?>>) = Unit
+            override suspend fun read(execution: dev.quwac.kagiroi.sql.SqlExecution, key: String): Any? = null
+            override suspend fun set(execution: dev.quwac.kagiroi.sql.SqlExecution, key: String, value: Any?) {
+                if (value == null) error("cleanup failed")
+            }
+        }
+        val original = IllegalStateException("query failed")
+        val thrown = assertFailsWith<IllegalStateException> {
+            database.transaction { rlsContext("TENANT" to "a", adapter = adapter) { throw original } }
+        }
+        assertSame(original, thrown)
+        assertEquals(listOf("cleanup failed", "discard failed"), thrown.suppressedExceptions.map { it.message })
+        assertTrue(pool.sessions.single().discarded)
+    }
+
+    @Test
+    fun failedRlsCleanupRejectsCommitAndDiscardsTheSession() = runTest {
+        val pool = FakeNodeOraclePool()
+        val database = NodeOracleDatabase.create(pool)
+        val adapter = object : dev.quwac.kagiroi.sql.RlsContextAdapter {
+            override val transactionLocal: Boolean = false
+            override fun validate(values: List<Pair<String, Any?>>) = Unit
+            override suspend fun read(execution: dev.quwac.kagiroi.sql.SqlExecution, key: String): Any? = null
+            override suspend fun set(execution: dev.quwac.kagiroi.sql.SqlExecution, key: String, value: Any?) {
+                if (value == null) error("cleanup failed")
+            }
+        }
+        assertFailsWith<dev.quwac.kagiroi.sql.DatabaseError> {
+            database.transaction {
+                assertFailsWith<IllegalStateException> {
+                    rlsContext("TENANT" to "a", adapter = adapter) { Unit }
+                }
+                assertFailsWith<dev.quwac.kagiroi.sql.ExecutionFailure> { executeRaw("SELECT 1 FROM DUAL") }
+            }
+        }
+        assertTrue(pool.sessions.single().discarded)
+        assertEquals("ROLLBACK", pool.sessions.single().executions.last().sql)
+    }
+
     @Test
     fun mapsTypedRowsAndKeepsLargeBindingsAsDecimalText() = runTest {
         val pool = FakeNodeOraclePool()
@@ -175,6 +222,7 @@ private class FakeNodeOraclePool : NodeOraclePool {
     var acquireFailure: OracleDriverException? = null
     var acquireCount = 0
     var closeCount = 0
+    var releaseFailure: Throwable? = null
 
     override suspend fun acquire(): NodeOracleSession {
         acquireCount++
@@ -191,6 +239,7 @@ private class FakeNodeOracleSession(private val pool: FakeNodeOraclePool) : Node
     val executions = mutableListOf<OracleStatement>()
     val queries = mutableListOf<OracleStatement>()
     var releaseCount = 0
+    var discarded = false
 
     override suspend fun execute(statement: OracleStatement): OracleCommandResult {
         executions += statement
@@ -213,7 +262,9 @@ private class FakeNodeOracleSession(private val pool: FakeNodeOraclePool) : Node
     override suspend fun commit() = Unit
 
     override suspend fun release(discard: Boolean) {
+        discarded = discard
         releaseCount++
+        pool.releaseFailure?.let { throw it }
     }
 }
 

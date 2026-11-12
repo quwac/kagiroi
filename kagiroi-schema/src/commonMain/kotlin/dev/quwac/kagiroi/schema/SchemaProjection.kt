@@ -12,8 +12,11 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Version of the public Schema Projection document contract. */
+/** Base projection version used by schemas without native security objects. */
 const val SCHEMA_PROJECTION_FORMAT_VERSION: Int = 1
+
+/** Projection version required when native security objects are present. */
+const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
 
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
@@ -35,8 +38,17 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
     val indexes = registry.indexes.sortedWith(indexOrder)
     return SchemaProjection(
         buildJsonObject {
-            put("formatVersion", JsonPrimitive(SCHEMA_PROJECTION_FORMAT_VERSION))
-            put("schema", physicalSchemaJson(tables, sequences, indexes))
+            put(
+                "formatVersion",
+                JsonPrimitive(
+                    if (registry.securityObjects.isEmpty()) {
+                        SCHEMA_PROJECTION_FORMAT_VERSION
+                    } else {
+                        SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
+                    },
+                ),
+            )
+            put("schema", physicalSchemaJson(tables, sequences, indexes, registry.securityObjects))
             put("evolution", evolutionJson(tables, indexes))
         },
     )
@@ -46,10 +58,12 @@ private fun physicalSchemaJson(
     tables: List<Table>,
     sequences: List<Sequence>,
     indexes: List<SchemaIndex>,
+    security: List<CanonicalSecurityObject>,
 ): JsonObject = buildJsonObject {
     put("tables", tables.jsonArray(Table::tableJson))
     put("sequences", sequences.jsonArray(Sequence::sequenceJson))
     put("indexes", indexes.jsonArray(SchemaIndex::indexJson))
+    if (security.isNotEmpty()) put("securityObjects", JsonArray(security.map { it.project() }))
 }
 
 private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): JsonObject = buildJsonObject {
@@ -197,7 +211,7 @@ private fun IndexKey.indexKeyJson(): JsonObject = when (this) {
     }
 }
 
-private fun BooleanExpression.predicateJson(): JsonObject = when (this) {
+internal fun BooleanExpression.predicateJson(): JsonObject = when (this) {
     is ValueComparison<*> -> buildJsonObject {
         put("kind", JsonPrimitive("valueComparison"))
         put("expression", column.expressionJson())
@@ -492,6 +506,7 @@ private fun DefaultBinaryOperator.projectionName(): String = when (this) {
 }
 
 private fun SqlFunction.projectionName(): String = when (this) {
+    SqlFunction.PostgresCurrentSetting -> "postgresCurrentSetting"
     SqlFunction.Lower -> "lower"
     SqlFunction.Upper -> "upper"
     SqlFunction.Length -> "length"

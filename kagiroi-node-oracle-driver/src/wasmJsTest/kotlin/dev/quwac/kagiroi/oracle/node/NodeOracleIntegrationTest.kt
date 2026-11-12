@@ -11,6 +11,23 @@ import kotlin.test.Test
 
 /** Represents node oracle integration test. */
 class NodeOracleIntegrationTest {
+    /** Verifies native Oracle context cleanup on one reused physical session. */
+    @Test
+    fun nativeContextAndPoolReuse() = runTest {
+        val settings = integrationSettings() ?: return@runTest
+        val database = NodeOracleDatabase {
+            user = settings.user
+            password = settings.password
+            connectString = settings.connectString
+            pool { maxConnections = 1 }
+        }
+        try {
+            oracleRlsContextContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
     /** Provides the oracle23 contract result. */
     @Test
     fun oracle23Contract() = runTest {

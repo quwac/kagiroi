@@ -46,7 +46,13 @@ import dev.quwac.kagiroi.sql.toNonEmptyListOrNull
 
 /** T-SQL syntax and physical type rules for Microsoft SQL Server. */
 @Suppress("TooManyFunctions") // SQL Server owns each dialect rendering variation in one public contract.
-object SqlServerDialect : SqlDdlDialect, SqlMergeDialect, SqlDmlOutputDialect, SqlSequenceDialect {
+object SqlServerDialect :
+    SqlDdlDialect,
+    SqlMergeDialect,
+    SqlDmlOutputDialect,
+    SqlSequenceDialect,
+    dev.quwac.kagiroi.sql.SqlRlsContextDialect {
+    override val rlsContextAdapter: dev.quwac.kagiroi.sql.RlsContextAdapter get() = SqlServerRlsContext
     override val mergeKind: SqlMergeKind = SqlMergeKind.SQL_SERVER
 
     private val types = SqlServerTypeRegistry()
@@ -179,7 +185,9 @@ private class ConfiguredSqlServerDialect(extensions: List<SqlServerExtension>) :
     SqlDdlDialect,
     SqlMergeDialect,
     SqlDmlOutputDialect,
-    SqlSequenceDialect {
+    SqlSequenceDialect,
+    dev.quwac.kagiroi.sql.SqlRlsContextDialect {
+    override val rlsContextAdapter: dev.quwac.kagiroi.sql.RlsContextAdapter get() = SqlServerRlsContext
     override val mergeKind: SqlMergeKind = SqlMergeKind.SQL_SERVER
 
     private val types = SqlServerTypeRegistry(extensions)
@@ -266,6 +274,8 @@ private class SqlServerPagination(private val limit: Int?, private val offset: I
 private class SqlServerDdlRenderer(private val types: SqlServerTypeRegistry) {
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.SecurityDdlStatement -> renderSqlServerSecurity(dialect, statement)
+
             is CreateTable -> renderCreateTable(dialect, statement)
 
             is CreateSequence -> renderSqlServerCreateSequence(dialect, statement)

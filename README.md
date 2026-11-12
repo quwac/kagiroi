@@ -279,6 +279,12 @@ Typed DDL runs only when explicitly executed. Kagiroi does not introspect or
 synchronize databases, or apply migration history. Use parameterized raw SQL for
 a complete vendor-specific statement outside the typed API.
 
+Native row-level security is available for PostgreSQL/PGlite, SQL Server, and
+Oracle. Register policies in `Table.init`, export canonical security objects,
+plan security changes, and set transaction-scoped runtime context. See
+[native RLS](docs/ROW_LEVEL_SECURITY.md) for native DDL, prerequisites, and context
+cleanup semantics.
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,

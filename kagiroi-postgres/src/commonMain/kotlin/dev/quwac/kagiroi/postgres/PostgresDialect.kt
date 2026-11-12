@@ -43,7 +43,13 @@ import dev.quwac.kagiroi.sql.renderUniqueConstraint
 
 /** PostgreSQL syntax for the SQL query models supported by kagiroi-sql. */
 @Suppress("TooManyFunctions")
-object PostgresDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDialect, SqlSequenceDialect {
+object PostgresDialect :
+    SqlDdlDialect,
+    SqlInsertConflictDialect,
+    SqlReturningDialect,
+    SqlSequenceDialect,
+    dev.quwac.kagiroi.sql.SqlRlsContextDialect {
+    override val rlsContextAdapter: dev.quwac.kagiroi.sql.RlsContextAdapter get() = PostgresRlsContext
     private val ddlRenderer = PostgresDdlRenderer(PostgresTypeRegistry())
     private val types = PostgresTypeRegistry()
 
@@ -82,6 +88,7 @@ object PostgresDialect : SqlDdlDialect, SqlInsertConflictDialect, SqlReturningDi
         types.renderRecursiveCteAnchorProjection(projection, reference)
 
     override fun renderFunction(function: SqlFunction, arguments: List<String>): String = when (function) {
+        SqlFunction.PostgresCurrentSetting -> "current_setting(${arguments.joinToString(", ")})"
         SqlFunction.Substring -> postgresSubstring(arguments)
         SqlFunction.Concat -> postgresConcat(arguments)
         SqlFunction.Round -> postgresRound(arguments)
@@ -119,7 +126,9 @@ private class ConfiguredPostgresDialect(extensions: List<PostgresExtension>) :
     SqlDdlDialect,
     SqlInsertConflictDialect,
     SqlReturningDialect,
-    SqlSequenceDialect {
+    SqlSequenceDialect,
+    dev.quwac.kagiroi.sql.SqlRlsContextDialect {
+    override val rlsContextAdapter: dev.quwac.kagiroi.sql.RlsContextAdapter get() = PostgresRlsContext
     private val ddlRenderer = PostgresDdlRenderer(PostgresTypeRegistry(extensions))
     private val types = PostgresTypeRegistry(extensions)
 
@@ -272,6 +281,8 @@ private fun renderPostgresSequenceNextValue(dialect: SqlDialect, sequence: dev.q
 private class PostgresDdlRenderer(private val types: PostgresTypeRegistry) {
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.SecurityDdlStatement -> renderPostgresSecurity(dialect, statement)
+
             is CreateTable -> renderCreateTable(dialect, statement)
 
             is CreateSequence -> renderCreateSequence(dialect, statement)
