@@ -12,6 +12,18 @@ import kotlin.test.Test
 
 /** Represents postgres compatibility integration test. */
 class PostgresCompatibilityIntegrationTest {
+    /** Verifies native RLS and context cleanup through the Hyperdrive driver. */
+    @Test
+    fun nativeRlsContext() = runTest {
+        val connectionString = postgresTestConnectionString() ?: return@runTest
+        val database = HyperdrivePostgresDatabase(testBinding(connectionString))
+        try {
+            dev.quwac.kagiroi.sql.testing.postgresRlsContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
     /** Provides the postgres driver contract result. */
     @Test
     fun postgresDriverContract() = runTest {

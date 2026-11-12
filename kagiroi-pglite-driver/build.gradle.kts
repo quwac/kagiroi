@@ -25,6 +25,7 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
         }
         commonTest {
+            kotlin.srcDir(rootProject.file("test-support/postgres-rls-contract/src/commonTest/kotlin"))
             kotlin.srcDir("src/contractTest/kotlin")
             kotlin.srcDir(rootProject.file("test-support/sql-database-contract/src/commonTest/kotlin"))
             dependencies {

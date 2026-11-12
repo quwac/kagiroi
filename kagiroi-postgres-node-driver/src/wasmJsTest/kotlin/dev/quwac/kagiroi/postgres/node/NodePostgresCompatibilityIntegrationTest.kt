@@ -11,6 +11,18 @@ import kotlin.time.Duration.Companion.seconds
 
 /** Represents node postgres compatibility integration test. */
 class NodePostgresCompatibilityIntegrationTest {
+    /** Verifies native row security and clean reuse of one pooled connection. */
+    @Test
+    fun nativeRlsAndPoolReuse() = runTest {
+        val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest
+        val database = NodePostgresDatabase(url) { pool { maxConnections = 1 } }
+        try {
+            dev.quwac.kagiroi.sql.testing.postgresRlsContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
     /** Provides the local postgres contract result. */
     @Test
     fun localPostgresContract() = runTest {

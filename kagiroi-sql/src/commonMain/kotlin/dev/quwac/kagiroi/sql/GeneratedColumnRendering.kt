@@ -160,6 +160,8 @@ private fun renderGeneratedPredicate(
 @Suppress("ThrowsCount") // A generated expression must reject every non-portable function explicitly.
 private fun defaultFunction(function: SqlFunction, arguments: List<String>): String {
     val name = when (function) {
+        SqlFunction.PostgresCurrentSetting -> throw UnsupportedDdlOperation("current_setting", "requires PostgreSQL")
+
         SqlFunction.Lower -> "LOWER"
 
         SqlFunction.Upper -> "UPPER"

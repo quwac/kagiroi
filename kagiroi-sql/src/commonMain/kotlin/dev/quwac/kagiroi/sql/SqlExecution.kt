@@ -5,6 +5,7 @@ import dev.quwac.kagiroi.core.Database
 import dev.quwac.kagiroi.core.DatabaseCapability
 import dev.quwac.kagiroi.schema.Sequence
 import dev.quwac.kagiroi.schema.SqlExpression
+import dev.quwac.kagiroi.schema.Table
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -67,6 +68,17 @@ fun rawSqlRow(columnNames: List<String>, values: List<Any?>): RawSqlRow = RawSql
 
 /** Operations available both on a database and inside an explicit transaction. */
 interface SqlExecution {
+    /** Selects this table's declared columns using the current database or transaction receiver. */
+    @Suppress("UNCHECKED_CAST") // Scalar access remains disabled by the MultipleProjections shape.
+    fun Table.select(): ExecutableSelectQuery<SelectQueryState.Start, Any?, MultipleProjections> {
+        val projections = columns
+        require(projections.isNotEmpty()) { "Table SELECT requires at least one column" }
+        return ExecutableSelectQuery(
+            this@SqlExecution,
+            SelectQuery(projections.first() as SqlExpression<Any?>, projections, this),
+        )
+    }
+
     /** SQL syntax and capability model used for rendering statements. */
     val dialect: SqlDialect
 

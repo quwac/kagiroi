@@ -277,6 +277,11 @@ class MySqlCompatibleDdlRenderer(
     /** Renders the render result. */
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.SecurityDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "native security",
+                "unsupported dialect",
+            )
+
             is CreateTable -> renderCreateTable(dialect, statement)
 
             is CreateSequence -> renderMySqlCompatibleCreateSequence(dialect, statement, supportsSequences)

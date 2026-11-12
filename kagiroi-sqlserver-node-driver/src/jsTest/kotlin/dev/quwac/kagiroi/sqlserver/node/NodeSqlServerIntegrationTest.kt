@@ -17,6 +17,25 @@ import kotlin.time.Duration.Companion.seconds
 
 class NodeSqlServerIntegrationTest {
     @Test
+    fun nativeRlsAndPoolReuse() = runTest {
+        val host = environmentVariable("KAGIROI_SQLSERVER_TEST_HOST") ?: return@runTest
+        val database = NodeSqlServerDatabase {
+            this.host = host
+            port = environmentVariable("KAGIROI_SQLSERVER_TEST_PORT")?.toInt() ?: 1433
+            this.database = environmentVariable("KAGIROI_SQLSERVER_TEST_DATABASE") ?: "master"
+            user = environmentVariable("KAGIROI_SQLSERVER_TEST_USER") ?: "sa"
+            password = environmentVariable("KAGIROI_SQLSERVER_TEST_PASSWORD") ?: "Kagiroi!Passw0rd"
+            pool { maxConnections = 1 }
+            tls { mode = NodeSqlServerTlsMode.REQUIRE }
+        }
+        try {
+            sqlServerRlsContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
     fun dedicatedSessionKeepsExplicitTransactionOnOneConnection() = runTest {
         val host = environmentVariable("KAGIROI_SQLSERVER_TEST_HOST") ?: return@runTest
         val database = NodeSqlServerDatabase {

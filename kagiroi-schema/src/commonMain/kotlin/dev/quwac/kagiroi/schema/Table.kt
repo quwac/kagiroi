@@ -28,6 +28,7 @@ abstract class Table(
     private val declaredRenameHistory = mutableListOf<String>()
     private val declaredSequences = mutableListOf<Sequence>()
     private val declaredIndexes = mutableListOf<SchemaIndex>()
+    private val declaredSecurity = mutableListOf<TableSecurityDefinition>()
     private var isSchemaSealed = false
 
     /** Columns declared by this table, in declaration order. */
@@ -54,6 +55,20 @@ abstract class Table(
 
     /** Physical indexes declared by this table, in declaration order. */
     val indexes: List<SchemaIndex> get() = declaredIndexes.toList()
+
+    /** Native security definitions registered by dialect DSLs in the table initializer. */
+    val securityDefinitions: List<TableSecurityDefinition> get() = declaredSecurity.toList()
+
+    /** Registers validated dialect metadata before the schema is sealed. */
+    @InternalSchemaDdlApi
+    fun registerSecurity(definition: TableSecurityDefinition) {
+        requireSchemaMutable()
+        require(definition.table === this) { "Security definition belongs to another table" }
+        require(declaredSecurity.none { it.registrationKey == definition.registrationKey }) {
+            "Duplicate security definition: ${definition.registrationKey}"
+        }
+        declaredSecurity += definition
+    }
 
     init {
         require(tableName.isNotBlank()) { "Table name must not be blank" }

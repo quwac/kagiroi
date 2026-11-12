@@ -15,6 +15,22 @@ import kotlin.test.assertEquals
 
 class NodeOracleIntegrationTest {
     @Test
+    fun nativeContextAndPoolReuse() = runTest {
+        val settings = integrationSettings() ?: return@runTest
+        val database = NodeOracleDatabase {
+            user = settings.user
+            password = settings.password
+            connectString = settings.connectString
+            pool { maxConnections = 1 }
+        }
+        try {
+            oracleRlsContextContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
     fun executesNativeMerge() = runTest {
         val settings = integrationSettings() ?: return@runTest
         val database = configuredDatabase(settings)

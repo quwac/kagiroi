@@ -304,6 +304,7 @@ private class OraclePagination(private val limit: Int?, private val offset: Int?
 private class OracleDdlRenderer(private val types: OracleTypeRegistry) {
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.SecurityDdlStatement -> renderOracleSecurity(dialect, statement)
             is CreateTable -> renderCreateTable(dialect, statement)
             is CreateSequence -> renderOracleCreateSequence(dialect, statement)
             is DropTable -> renderDropTable(dialect, statement)

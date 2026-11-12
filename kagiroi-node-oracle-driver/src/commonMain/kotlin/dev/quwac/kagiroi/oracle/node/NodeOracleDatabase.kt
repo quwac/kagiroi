@@ -36,6 +36,8 @@ import dev.quwac.kagiroi.sql.RawSqlRow
 import dev.quwac.kagiroi.sql.RenderedSql
 import dev.quwac.kagiroi.sql.ResultConversionFailure
 import dev.quwac.kagiroi.sql.ReturningIntoCapability
+import dev.quwac.kagiroi.sql.RlsContextConnectionGuard
+import dev.quwac.kagiroi.sql.RlsContextGuard
 import dev.quwac.kagiroi.sql.SavepointCapability
 import dev.quwac.kagiroi.sql.SavepointController
 import dev.quwac.kagiroi.sql.SavepointScope
@@ -271,6 +273,7 @@ class NodeOracleDatabase private constructor(
         val execution = OracleExecution(session, values, typeRegistry)
         val scope = TransactionScope(execution)
         var discard = false
+        var transactionFailure: Throwable? = null
         var transactionStarted = false
         try {
             currentCoroutineContext().ensureActive()
@@ -306,6 +309,7 @@ class NodeOracleDatabase private constructor(
             transactionStarted = false
             return result
         } catch (error: Throwable) {
+            transactionFailure = error
             if (transactionStarted) {
                 discard = withContext(NonCancellable) { rollbackAfter(execution, error) } || discard
                 transactionStarted = false
@@ -314,7 +318,7 @@ class NodeOracleDatabase private constructor(
             throw error
         } finally {
             scope.active = false
-            releaseSession(session, discard)
+            releaseTransactionSession(session, discard || scope.rlsGuard.requiresDiscard, transactionFailure)
         }
     }
 
@@ -402,6 +406,16 @@ class NodeOracleDatabase private constructor(
         }
     }
 
+    private suspend fun releaseTransactionSession(session: NodeOracleSession, discard: Boolean, original: Throwable?) {
+        withContext(NonCancellable) {
+            try {
+                releaseSession(session, discard)
+            } catch (failure: Throwable) {
+                if (original == null) throw failure else original.addSuppressed(failure)
+            }
+        }
+    }
+
     private suspend fun releaseSession(session: NodeOracleSession, discard: Boolean) {
         try {
             session.release(discard)
@@ -427,7 +441,10 @@ class NodeOracleDatabase private constructor(
         if (closed) throw DatabaseClosed()
     }
 
-    private inner class TransactionScope(private val execution: OracleExecution) :
+    private inner class TransactionScope(
+        private val execution: OracleExecution,
+        val rlsGuard: RlsContextGuard = RlsContextGuard(),
+    ) : RlsContextConnectionGuard by rlsGuard,
         SqlTransaction,
         SqlDmlReturningIntoExecution {
         override val dialect: SqlDialect get() = this@NodeOracleDatabase.dialect
@@ -447,6 +464,7 @@ class NodeOracleDatabase private constructor(
 
         override fun query(statement: RenderedSql, columns: List<SqlExpression<*>>): Flow<SqlRow> = flow {
             requireActive()
+            requireUsable()
             execution.queryRows(statement, columns).forEach { row ->
                 currentCoroutineContext().ensureActive()
                 emit(row)
@@ -459,6 +477,7 @@ class NodeOracleDatabase private constructor(
 
         override fun queryRaw(sql: String, parameters: List<Any?>): Flow<RawSqlRow> = flow {
             requireActive()
+            requireUsable()
             execution.queryRawRows(sql, parameters).forEach { row ->
                 currentCoroutineContext().ensureActive()
                 emit(row)
@@ -470,7 +489,10 @@ class NodeOracleDatabase private constructor(
             returning: SqlDmlReturningInto,
         ): SqlDmlReturningIntoResult = inScope { execution.executeDmlReturningInto(statement, returning) }
 
-        fun requireUsable() = savepoints.requireUsable()
+        fun requireUsable() {
+            rlsGuard.requireUsable()
+            savepoints.requireUsable()
+        }
 
         private suspend fun <T> inScope(block: suspend () -> T): T {
             requireActive()

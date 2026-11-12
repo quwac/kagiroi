@@ -362,6 +362,7 @@ private fun SqlFunction.isIndexScalarFunction(): Boolean = when (this) {
     SqlFunction.LastValue,
     SqlFunction.Ntile,
     SqlFunction.NthValue,
+    SqlFunction.PostgresCurrentSetting,
     is SqlFunction.Unsafe,
     -> false
 }

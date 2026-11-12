@@ -235,6 +235,9 @@ fun literal(value: Double): SqlLiteral<Double> = SqlLiteral(value, doubleExpress
 
 /** Built-in function kinds. Function names remain dialect rendering decisions. */
 sealed interface SqlFunction {
+    /** PostgreSQL current_setting, available only on PostgreSQL dialects. */
+    data object PostgresCurrentSetting : SqlFunction
+
     /** Converts a string expression to lowercase. */
     data object Lower : SqlFunction
 

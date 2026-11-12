@@ -17,7 +17,14 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
     /** Projects this registry through Kagiroi's stable, versioned schema-export contract. */
     fun project(): SchemaProjection = projectSchema(this)
 
+    /** Canonical native security objects, with SQL Server table contributions merged by policy identity. */
+    val securityObjects: List<CanonicalSecurityObject> get() = canonicalizeSecurity(tables)
+
+    /** Managed table roots, for ordered schema DDL planning. */
+    val managedTables: List<Table> get() = tables.toList()
+
     internal fun validate() {
+        canonicalizeSecurity(tables)
         validateNoRepeatedInstances()
         validateNames()
         validateRelations()

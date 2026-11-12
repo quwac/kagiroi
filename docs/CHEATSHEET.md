@@ -1071,6 +1071,151 @@ database.execute(alterTable(Users) { renameColumn(Users.email, "login_email") })
 SQLite/D1 allow only native ALTER operations. Use raw SQL for SQL Server default-constraint lookup
 and MySQL/MariaDB changes requiring a full column definition.
 
+## Native row-level security
+
+Register dialect security metadata in `Table.init`: `postgresRls { ... }`,
+`sqlServerRls("policy") { ... }`, or `oracleVpd("policy") { ... }`.
+PostgreSQL enables RLS implicitly and defaults policies to ALL/PUBLIC/PERMISSIVE.
+SQL Server and Oracle policies default to enabled. MySQL, MariaDB, SQLite, and D1
+reject native security DDL.
+
+### PostgreSQL / PGlite RLS
+
+```kotlin
+object TenantDocuments : Table("tenant_documents") {
+    val id = uuid("id").primaryKey()
+    val tenantId = uuid("tenant_id")
+
+    init {
+        postgresRls {
+            force()
+            policy("tenant") {
+                using { tenantId eq currentSetting("app.tenant_id").cast<Uuid>() }
+                withCheck { tenantId eq currentSetting("app.tenant_id").cast<Uuid>() }
+            }
+        }
+    }
+}
+
+val registry = schema(TenantDocuments)
+database.execute {
+    createTable(TenantDocuments)
+    createSecurityObjects(registry)
+}
+val rows = database.transaction {
+    rlsContext("app.tenant_id" to tenantId) { TenantDocuments.select().all() }
+}
+val securityChanges = diffSecurity(previousRegistry, registry)
+```
+
+Use the complete PostgreSQL setting name verbatim, such as `app.tenant_id`.
+`force()` also subjects the table owner to RLS. Command selectors, roles, and
+restrictive policies are optional; `using` and `withCheck` accept typed Boolean expressions.
+
+### SQL Server security policies
+
+```kotlin
+import dev.quwac.kagiroi.sqlserver.AfterInsert
+import dev.quwac.kagiroi.sqlserver.function
+import dev.quwac.kagiroi.sqlserver.sqlServerRls
+
+object ServerDocuments : Table("documents", "dbo") {
+    val tenantId = uuid("tenant_id")
+
+    init {
+        sqlServerRls("tenant_security", schema = "security") {
+            filterPredicate(
+                function = function(schema = "security", name = "tenant_predicate"),
+                tenantId,
+            )
+            blockPredicate(
+                function = function(schema = "security", name = "tenant_predicate"),
+                timing = AfterInsert,
+                tenantId,
+            )
+        }
+    }
+}
+
+database.execute {
+    createTable(ServerDocuments)
+    createSecurityObjects(schema(ServerDocuments))
+}
+val serverRows = database.transaction {
+    rlsContext("tenant_id" to tenantId) { ServerDocuments.select().all() }
+}
+```
+
+The existing inline table-valued function receives the declared columns and can
+read `SESSION_CONTEXT(N'tenant_id')`. Multiple column arguments retain their order.
+Block timings are `AfterInsert`, `AfterUpdate`, `BeforeUpdate`, and `BeforeDelete`.
+Use `disabled()` for an inactive policy. Contributions from multiple tables merge
+by qualified policy name; pass all contributing tables to `schema(...)`.
+Runtime context keys are used verbatim and cleared before the session returns to the pool.
+
+### Oracle VPD policies
+
+```kotlin
+import dev.quwac.kagiroi.oracle.Delete
+import dev.quwac.kagiroi.oracle.Insert
+import dev.quwac.kagiroi.oracle.OracleRlsContext
+import dev.quwac.kagiroi.oracle.Select
+import dev.quwac.kagiroi.oracle.Update
+import dev.quwac.kagiroi.oracle.function
+import dev.quwac.kagiroi.oracle.oracleVpd
+
+object OracleDocuments : Table("DOCUMENTS", "APP") {
+    val tenantId = uuid("TENANT_ID")
+
+    init {
+        oracleVpd("tenant_isolation") {
+            function(
+                schema = "SECURITY",
+                packageName = "TENANT_SECURITY",
+                name = "TENANT_PREDICATE",
+            )
+            forStatements(Select, Insert, Update, Delete)
+        }
+    }
+}
+
+database.execute {
+    createTable(OracleDocuments)
+    createSecurityObjects(schema(OracleDocuments))
+}
+val oracleContext = OracleRlsContext(
+    namespace = "APP_CONTEXT",
+    setter = function(
+        schema = "SECURITY",
+        packageName = "TENANT_SECURITY",
+        name = "SET_CONTEXT_VALUE",
+    ),
+)
+val oracleRows = database.transaction {
+    rlsContext("TENANT_ID" to tenantId, adapter = oracleContext) {
+        OracleDocuments.select().all()
+    }
+}
+```
+
+VPD policies render as `DBMS_RLS.ADD_POLICY` calls. Function and package definitions,
+the application context, and the trusted setter must already exist. `packageName`
+is optional. The setter accepts `(attribute, value)`, sets the declared namespace,
+and clears the attribute for NULL; the predicate can read
+`SYS_CONTEXT('APP_CONTEXT', 'TENANT_ID')`.
+`updateCheck()` enables INSERT/UPDATE row checks; selecting INSERT enables its
+mandatory check automatically. Use `disabled()` for an inactive policy.
+Oracle's native implicit-commit behavior applies to VPD DDL.
+
+Runtime keys and values are bound, nested scopes are rejected, and queries must
+complete inside the scope. SQL Server and Oracle require initially empty context
+keys and clear them on exit; cleanup failures invalidate and discard the physical session.
+Security-bearing schema exports use projection version 2; Kagiroi Migration includes
+security changes in its normal artifact pipeline.
+
+See [native RLS](ROW_LEVEL_SECURITY.md) for complete imports,
+canonical identities, DDL ordering, context cleanup, and function prerequisites.
+
 ## Transactions, savepoints, raw SQL, and errors
 
 ```kotlin

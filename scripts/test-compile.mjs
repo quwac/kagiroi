@@ -15,6 +15,11 @@ function parseShardValue(name, fallback) {
 }
 
 const cases = [
+  ["NativeSecurityPositive", []],
+  ["WrongRlsPredicate", ["ARGUMENT_TYPE_MISMATCH", "RETURN_TYPE_MISMATCH"]],
+  ["WrongSecurityArguments", ["ARGUMENT_TYPE_MISMATCH"]],
+  ["RlsContextOutsideTransaction", ["UNRESOLVED_REFERENCE", "UNRESOLVED_REFERENCE_WRONG_RECEIVER"]],
+  ["WrongNullableRlsCast", ["INITIALIZER_TYPE_MISMATCH"]],
   ["CommonDriversPositive", []],
   ["WrongCommonDrivers", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
   ["HyperdrivePositive", []],

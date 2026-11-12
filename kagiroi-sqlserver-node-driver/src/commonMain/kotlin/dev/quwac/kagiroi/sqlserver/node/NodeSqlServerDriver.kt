@@ -31,6 +31,14 @@ internal interface NodeSqlServerSession {
 }
 
 internal interface NodeSqlServerTransaction : NodeSqlServerSession {
+    fun protectRlsConnection() {}
+
+    fun releaseRlsConnectionProtection() {}
+
+    suspend fun discard() {
+        error("This transaction cannot discard a contaminated physical connection")
+    }
+
     suspend fun commit()
 
     suspend fun rollback()

@@ -126,6 +126,23 @@ private class WasmNodeSqlServerPool(private val pool: NativePool) : NodeSqlServe
 }
 
 private class WasmNodeSqlServerTransaction(private val transaction: NativeTransaction) : NodeSqlServerTransaction {
+    private var protected = false
+    override fun protectRlsConnection() {
+        if (!protected) {
+            protectContextConnection(transaction)
+            protected = true
+        }
+    }
+
+    override fun releaseRlsConnectionProtection() {
+        releaseContextConnectionProtection(transaction)
+        protected = false
+    }
+
+    override suspend fun discard() {
+        discardContextConnection(transaction)
+    }
+
     override suspend fun execute(statement: SqlServerStatement): SqlServerCommandResult =
         SqlServerCommandResult(affectedRows(requestResult(transaction.request(), statement)))
 
@@ -268,3 +285,22 @@ private fun parameterName(index: Int): String = "kb" + (index + 1)
 
 private const val BYTE_MASK = 0xff
 private val ERROR_ATTRIBUTES = listOf("number", "state", "class", "serverName", "procName", "lineNumber")
+
+@JsFun(
+    """(transaction) => {
+    const connection = transaction._acquiredConnection;
+    if (!connection) throw new Error('RLS context requires an active physical transaction');
+    transaction.__kagiroiRlsConnection = connection;
+    transaction.__kagiroiRlsAbort = () => { if (!transaction._rollbackRequested) connection.close(); };
+      connection.prependOnceListener('rollbackTransaction', transaction.__kagiroiRlsAbort);
+}""",
+)
+private external fun protectContextConnection(transaction: NativeTransaction)
+
+@JsFun("(transaction) => (transaction.__kagiroiRlsConnection || transaction._acquiredConnection).close()")
+private external fun discardContextConnection(transaction: NativeTransaction)
+
+@JsFun(
+    "(transaction) => transaction.__kagiroiRlsConnection.removeListener('rollbackTransaction', transaction.__kagiroiRlsAbort)",
+)
+private external fun releaseContextConnectionProtection(transaction: NativeTransaction)

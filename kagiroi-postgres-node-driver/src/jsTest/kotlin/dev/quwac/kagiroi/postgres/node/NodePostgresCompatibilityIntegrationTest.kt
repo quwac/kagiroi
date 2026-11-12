@@ -10,6 +10,17 @@ import kotlin.time.Duration.Companion.seconds
 
 class NodePostgresCompatibilityIntegrationTest {
     @Test
+    fun nativeRlsAndPoolReuse() = runTest {
+        val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest
+        val database = NodePostgresDatabase(url) { pool { maxConnections = 1 } }
+        try {
+            dev.quwac.kagiroi.sql.testing.postgresRlsContract(database)
+        } finally {
+            database.close()
+        }
+    }
+
+    @Test
     fun localPostgresContract() = runTest {
         val url = environmentVariable(LOCAL_TEST_URL) ?: return@runTest
         nodePostgresDriverContract(configuredDatabase(url))
