@@ -170,29 +170,30 @@ private fun Throwable.asPostgresDriverException(kind: PostgresFailureKind): Post
     return PostgresDriverException(kind, sqlState, attributes, detail, this)
 }
 
+// Attach rejection handlers to the source Promise so coroutine failures cannot trigger a second resume.
 private suspend fun Promise<NativePostgresClient>.awaitClient(): NativePostgresClient =
     suspendCancellableCoroutine { continuation ->
-        then { client ->
+        then(onFulfilled = { client ->
             if (continuation.isActive) {
                 continuation.resume(client)
             } else {
                 client.release(false)
             }
             client
-        }.catch { error ->
+        }, onRejected = { error ->
             if (continuation.isActive) continuation.resumeWithException(error)
             null
-        }
+        })
     }
 
-private suspend fun <T> Promise<T>.awaitCompletion(): T = suspendCoroutine { continuation ->
-    then { value ->
+internal suspend fun <T> Promise<T>.awaitCompletion(): T = suspendCoroutine { continuation ->
+    then(onFulfilled = { value ->
         continuation.resume(value)
         value
-    }.catch { error ->
+    }, onRejected = { error ->
         continuation.resumeWithException(error)
         null
-    }
+    })
 }
 
 private fun textResultTypes(): dynamic = js("({ getTypeParser: () => (value => value) })")

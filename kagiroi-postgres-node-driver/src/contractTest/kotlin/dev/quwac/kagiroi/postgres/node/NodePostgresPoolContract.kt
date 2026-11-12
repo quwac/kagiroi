@@ -2,6 +2,7 @@ package dev.quwac.kagiroi.postgres.node
 
 import dev.quwac.kagiroi.sql.ConnectionFailure
 import dev.quwac.kagiroi.sql.DatabaseClosed
+import dev.quwac.kagiroi.sql.dedicatedSession
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -10,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlin.time.Duration.Companion.milliseconds
 
 /** Direct pool lifecycle, reuse, acquisition timeout, and close contract. */
@@ -23,6 +25,15 @@ internal suspend fun nodePostgresPoolContract(url: String) {
     val firstProcess = reuseDatabase.queryRaw("SELECT pg_backend_pid() AS pid").toList().single().long("pid")
     val secondProcess = reuseDatabase.queryRaw("SELECT pg_backend_pid() AS pid").toList().single().long("pid")
     assertEquals(firstProcess, secondProcess)
+    val original = IllegalStateException("dedicated session failure")
+    val propagated = assertFailsWith<IllegalStateException> {
+        reuseDatabase.dedicatedSession {
+            executeRaw("SELECT 1")
+            throw original
+        }
+    }
+    assertSame(original, propagated)
+    assertEquals(firstProcess, reuseDatabase.queryRaw("SELECT pg_backend_pid() AS pid").toList().single().long("pid"))
     reuseDatabase.close()
     reuseDatabase.close()
     assertFailsWith<DatabaseClosed> { reuseDatabase.executeRaw("SELECT 1") }
