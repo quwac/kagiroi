@@ -149,6 +149,9 @@ sealed class Column<T> protected constructor(internal val definition: ColumnDefi
     /** One-time data changes used when this column is added to an existing table. */
     val notNullBackfill: List<NotNullBackfillStatement> get() = definition.notNullBackfill
 
+    /** One-time PostgreSQL type conversion, separate from the current physical schema. */
+    val typeConversion: ColumnTypeConversion? get() = definition.typeConversion
+
     /** Converts an application value to the scalar value consumed by a database driver. */
     override fun toStorageValue(value: T): Any? {
         if (value == null) {
@@ -203,6 +206,7 @@ internal data class ColumnDefinition(
     val comment: String? = null,
     val renameHistory: List<String> = emptyList(),
     val notNullBackfill: List<NotNullBackfillStatement> = emptyList(),
+    val typeConversion: ColumnTypeConversion? = null,
 )
 
 internal fun <T> WritableColumn<*>.withDefinition(definition: ColumnDefinition): WritableColumn<T> {

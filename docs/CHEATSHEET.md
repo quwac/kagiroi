@@ -48,6 +48,7 @@ object Users : Table(
 | `.comment(text)` | Table-definition description |
 | `.renamedFrom(previous, ...)` | Ordered migration-only physical name lineage |
 | `.notNullBackfill { execute(query) }` | Typed one-time INSERT/UPDATE operations for adding a NOT NULL column |
+| `.typeUsing(previousType) { previous -> expression }` | One-time PostgreSQL conversion when a non-null column changes type |
 | `.transform(...)` / `.asEnum(...)` | Kotlin value-to-storage mapping |
 
 Modifiers return an updated column. Keep it in a `val` when later declarations need it.
@@ -1303,6 +1304,37 @@ automatic retries, and vendor index options. `intersectAll()` and `exceptAll()` 
 SQL Server and SQLite/D1; MariaDB rejects `lag`/`lead` defaults and CTE-scoped DML. Oracle scopes
 CTEs to INSERT ... SELECT only. MySQL/MariaDB use `ON DUPLICATE KEY UPDATE`, not `ON CONFLICT`.
 
+## Column type conversions
+
+Install `kagiroi-postgres-kotlinx-datetime` for PostgreSQL local date-time columns and
+the typed `atTimeZone` functions. Install `PostgresKotlinxDateTime` on each database connection.
+
+```kotlin
+import dev.quwac.kagiroi.kotlinx.datetime.localDateTime
+import dev.quwac.kagiroi.postgres.kotlinx.datetime.atTimeZone
+import dev.quwac.kagiroi.schema.InstantColumnType
+import dev.quwac.kagiroi.schema.currentInstant
+import dev.quwac.kagiroi.schema.default
+import dev.quwac.kagiroi.schema.typeUsing
+
+object Events : Table("events") {
+    val createdAt = localDateTime("created_at")
+        .typeUsing(InstantColumnType) { previous -> previous.atTimeZone("UTC") }
+        .default(currentInstant().atTimeZone("UTC"))
+}
+```
+
+`typeUsing` exports version 4 evolution metadata, outside the physical schema hash.
+It applies only to an existing column whose physical type changes. The declared previous
+type must match migration history, and both source and target columns must be non-null.
+Expressions can reference physical writable columns of the same table. New columns,
+new tables, and columns already at their desired type do not run the conversion.
+PostgreSQL renders `ALTER COLUMN ... TYPE ... USING ...`; other migration dialects reject it.
+
+`instant.atTimeZone("UTC")` returns `LocalDateTime`;
+`localDateTime.atTimeZone("UTC")` returns `Instant`. Zones are bound query values and
+quoted literals in schema expressions. These functions require PostgreSQL/PGlite.
+
 ## NOT NULL column backfills
 
 Use `dev.quwac.kagiroi.sql.notNullBackfill` to attach typed data operations to a new
@@ -1324,7 +1356,7 @@ object Profiles : Table("profiles") {
 
 `execute` here records metadata; it does not execute a query or open a connection.
 The Kotlin type remains non-null. The schema registry must include every target table.
-The export uses projection version 3 and keeps the ordered operations in evolution
+The export requires projection version 3 or later and keeps the ordered operations in evolution
 metadata, outside the physical schema hash.
 
 Kagiroi Migration adds the column as nullable without a DEFAULT, runs the declared

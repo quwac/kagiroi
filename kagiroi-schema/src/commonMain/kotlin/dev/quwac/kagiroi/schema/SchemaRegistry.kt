@@ -29,6 +29,31 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
         validateNames()
         validateRelations()
         validateBackfills()
+        validateTypeConversions()
+    }
+
+    private fun validateTypeConversions() {
+        tables.forEach { table ->
+            table.columns.forEach { column ->
+                column.typeConversion?.let { conversion ->
+                    require(!column.isNullable && !column.isIdentity && !column.isComputed && !column.isGenerated) {
+                        "typeUsing requires a non-null writable column: $column"
+                    }
+                    require(
+                        column.type === conversion.using.type && column.storageType === conversion.using.storageType,
+                    ) {
+                        "typeUsing must return the final column type: $column"
+                    }
+                    require(
+                        conversion.using.referencedColumns.all { reference ->
+                            reference.table === table && table.columns.any {
+                                it.name == reference.name && !it.isComputed && !it.isGenerated
+                            }
+                        },
+                    ) { "typeUsing must reference physical columns in its target table" }
+                }
+            }
+        }
     }
 
     private fun validateNoRepeatedInstances() {

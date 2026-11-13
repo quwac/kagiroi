@@ -223,6 +223,7 @@ interface SqlDialect {
     /** Chooses dialect spelling for a built-in function. */
     @Suppress("CyclomaticComplexMethod") // The explicit function catalog is intentionally one exhaustive mapping.
     fun renderFunctionName(function: SqlFunction): String = when (function) {
+        SqlFunction.PostgresAtTimeZone -> throw UnsupportedCapability("postgres-at-time-zone")
         SqlFunction.PostgresCurrentSetting -> throw UnsupportedCapability("postgres-current-setting")
         SqlFunction.Lower -> "LOWER"
         SqlFunction.Upper -> "UPPER"

@@ -21,6 +21,9 @@ const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
 /** Projection version required for one-time typed NOT NULL backfill declarations. */
 const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
 
+/** Projection version required for typed ALTER COLUMN TYPE USING declarations. */
+const val TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 4
+
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
  *
@@ -45,6 +48,9 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
                 "formatVersion",
                 JsonPrimitive(
                     when {
+                        tables.any { table -> table.columns.any { it.typeConversion != null } } ->
+                            TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION
+
                         tables.any { table -> table.columns.any { it.notNullBackfill.isNotEmpty() } } ->
                             BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION
 
@@ -118,6 +124,18 @@ private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): Json
         }
     }
     if (backfills.isNotEmpty()) put("notNullBackfills", backfills.jsonElements())
+    val conversions = tables.flatMap { table ->
+        table.columns.mapNotNull { column ->
+            column.typeConversion?.let { conversion ->
+                buildJsonObject {
+                    put("column", column.referenceJson())
+                    put("from", conversion.from.typeJson())
+                    put("using", conversion.using.expressionJson())
+                }
+            }
+        }
+    }
+    if (conversions.isNotEmpty()) put("typeConversions", conversions.jsonElements())
     put("constraintRenames", JsonArray(emptyList()))
     put("sequenceRenames", JsonArray(emptyList()))
 }
@@ -543,6 +561,7 @@ private fun DefaultBinaryOperator.projectionName(): String = when (this) {
 }
 
 private fun SqlFunction.projectionName(): String = when (this) {
+    SqlFunction.PostgresAtTimeZone -> "postgresAtTimeZone"
     SqlFunction.PostgresCurrentSetting -> "postgresCurrentSetting"
     SqlFunction.Lower -> "lower"
     SqlFunction.Upper -> "upper"

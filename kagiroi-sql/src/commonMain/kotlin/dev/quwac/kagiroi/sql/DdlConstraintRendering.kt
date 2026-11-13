@@ -323,6 +323,8 @@ private fun renderCheckLiteral(
 // Exhaustive closed catalog; unsupported functions must fail explicitly.
 private fun defaultFunction(function: SqlFunction, arguments: List<String>): String {
     val name = when (function) {
+        SqlFunction.PostgresAtTimeZone -> throw UnsupportedDdlOperation("AT TIME ZONE", "requires PostgreSQL")
+
         SqlFunction.PostgresCurrentSetting -> throw UnsupportedDdlOperation("current_setting", "requires PostgreSQL")
 
         SqlFunction.Lower -> "LOWER"

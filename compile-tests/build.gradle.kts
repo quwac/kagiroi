@@ -25,6 +25,7 @@ kotlin {
                 implementation(project(":kagiroi-quwac-bignumber"))
                 implementation(project(":kagiroi-sql"))
                 implementation(project(":kagiroi-kotlinx-datetime"))
+                implementation(project(":kagiroi-postgres-kotlinx-datetime"))
                 implementation(project(":kagiroi-mariadb"))
                 implementation(project(":kagiroi-mysql"))
                 implementation(project(":kagiroi-oracle"))

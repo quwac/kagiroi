@@ -289,6 +289,9 @@ Typed `notNullBackfill` declarations describe one-time INSERT/UPDATE operations 
 Kagiroi Migration while keeping application columns non-null. See the
 [backfill API](docs/CHEATSHEET.md#not-null-column-backfills).
 
+Typed `typeUsing` declarations describe PostgreSQL conversions when an existing non-null
+column changes type. See [column type conversions](docs/CHEATSHEET.md#column-type-conversions).
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,
