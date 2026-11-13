@@ -31,8 +31,10 @@ abstract class Table(
     private val declaredSecurity = mutableListOf<TableSecurityDefinition>()
     private var isSchemaSealed = false
 
-    /** Columns declared by this table, in declaration order. */
-    val columns: List<Column<*>> get() = registeredColumns.toList()
+    /** Columns sorted by [Column.order], with declaration order breaking ties. */
+    val columns: List<Column<*>> get() = registeredColumns.withIndex()
+        .sortedWith(compareBy<IndexedValue<Column<*>>> { it.value.order }.thenBy { it.index })
+        .map { it.value }
 
     /** Optional table-level primary key. Column-level primary keys remain column metadata. */
     val primaryKey: PrimaryKeyConstraint? get() = declaredPrimaryKey
@@ -244,6 +246,7 @@ abstract class Table(
                 targetDefinition.encode,
                 targetDefinition.decode,
                 targetDefinition.hasValueMapping,
+                order = registeredColumns.size,
             ),
         ).also(registeredColumns::add)
         val builder = ForeignKeyBuilder1(this, validatedConstraintName(constraintName, "Foreign key"), source)
@@ -306,7 +309,8 @@ abstract class Table(
         requireSchemaMutable()
         require(name.isNotBlank()) { "Column name must not be blank" }
         require(registeredColumns.none { it.name == name }) { "Duplicate column name in $this: $name" }
-        return WritableColumn<T>(ColumnDefinition(this, name, type)).also(registeredColumns::add)
+        return WritableColumn<T>(ColumnDefinition(this, name, type, order = registeredColumns.size))
+            .also(registeredColumns::add)
     }
 
     internal fun replaceColumn(previous: Column<*>, replacement: Column<*>) {

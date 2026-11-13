@@ -46,12 +46,22 @@ object Users : Table(
 | `.generated(expr, storage)` | Read-only generated column |
 | `.computed()` | Read-only column omitted from DDL |
 | `.comment(text)` | Table-definition description |
+| `.order(value)` | Column ordering key for CREATE TABLE and schema exports |
 | `.renamedFrom(previous, ...)` | Ordered migration-only physical name lineage |
 | `.notNullBackfill { execute(query) }` | Typed one-time INSERT/UPDATE operations for adding a NOT NULL column |
 | `.typeUsing(previousType) { previous -> expression }` | One-time PostgreSQL conversion when a non-null column changes type |
 | `.transform(...)` / `.asEnum(...)` | Kotlin value-to-storage mapping |
 
 Modifiers return an updated column. Keep it in a `val` when later declarations need it.
+
+Use `.order(-100)` for an ID, `.order(100)` for `created_at`, and `.order(200)` for
+`updated_at` when these columns are declared by base classes. Unspecified keys use each
+column's zero-based declaration position, including inherited, computed, and explicitly
+ordered columns. Sort order is ascending; equal keys retain declaration order.
+All `Int` values are accepted, and modifiers retain the configured key.
+The key is not exported as a physical column attribute; the export contains the ordered
+column list. This API does not rearrange an existing database table. Keep the effective
+order consistent with migration history when refactoring an existing table.
 Call `default(...)` after `transform(...)`.
 
 Use the `comment` table argument and `.comment(...)` column modifier to describe

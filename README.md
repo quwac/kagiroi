@@ -292,6 +292,10 @@ Kagiroi Migration while keeping application columns non-null. See the
 Typed `typeUsing` declarations describe PostgreSQL conversions when an existing non-null
 column changes type. See [column type conversions](docs/CHEATSHEET.md#column-type-conversions).
 
+Column `.order(Int)` controls CREATE TABLE and schema export order, including columns
+inherited from base tables. Unspecified keys follow declaration positions; ties retain
+declaration order. See [tables and columns](docs/CHEATSHEET.md#tables-and-columns).
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,

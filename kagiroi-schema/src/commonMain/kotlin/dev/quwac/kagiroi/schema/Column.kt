@@ -100,6 +100,9 @@ sealed class Column<T> protected constructor(internal val definition: ColumnDefi
     /** Name of this column in [table]. */
     val name: String get() = definition.name
 
+    /** Column ordering key; defaults to the zero-based declaration position, including inherited columns. */
+    val order: Int get() = definition.order
+
     /** Kotlin value type declared for this column. */
     override val type: ColumnType<*> get() = definition.type
 
@@ -207,6 +210,7 @@ internal data class ColumnDefinition(
     val renameHistory: List<String> = emptyList(),
     val notNullBackfill: List<NotNullBackfillStatement> = emptyList(),
     val typeConversion: ColumnTypeConversion? = null,
+    val order: Int = 0,
 )
 
 internal fun <T> WritableColumn<*>.withDefinition(definition: ColumnDefinition): WritableColumn<T> {
