@@ -28,6 +28,7 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
         validateNoRepeatedInstances()
         validateNames()
         validateRelations()
+        validateBackfills()
     }
 
     private fun validateNoRepeatedInstances() {
@@ -78,6 +79,36 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
             index.keys.flatMap { it.referencedColumns }.forEach(::requireManagedColumn)
             index.includedColumns.forEach(::requireManagedColumn)
             index.predicate?.referencedColumns?.forEach(::requireManagedColumn)
+        }
+    }
+
+    /** Validate evolution declarations after all column wrappers and table roots have been assembled. */
+    private fun validateBackfills() {
+        tables.forEach { table ->
+            table.columns.filter { it.notNullBackfill.isNotEmpty() }.forEach { column ->
+                require(!column.isNullable && !column.isIdentity && !column.isComputed && !column.isGenerated) {
+                    "notNullBackfill requires a non-null writable column: $column"
+                }
+                column.notNullBackfill.forEach { statement ->
+                    require(
+                        tables.any { it === statement.table },
+                    ) { "Backfill target table is not managed: ${statement.table}" }
+                    val assignments = when (statement) {
+                        is NotNullBackfillStatement.Insert -> statement.rows.flatten()
+                        is NotNullBackfillStatement.Update -> statement.assignments
+                    }
+                    assignments.forEach { assignment ->
+                        require(
+                            statement.table.columns.any {
+                                it.name == assignment.column.name && !it.isComputed &&
+                                    !it.isGenerated
+                            },
+                        ) {
+                            "Backfill target is not a physical writable column: ${assignment.column}"
+                        }
+                    }
+                }
+            }
         }
     }
 

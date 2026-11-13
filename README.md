@@ -285,6 +285,10 @@ plan security changes, and set transaction-scoped runtime context. See
 [native RLS](docs/ROW_LEVEL_SECURITY.md) for native DDL, prerequisites, and context
 cleanup semantics.
 
+Typed `notNullBackfill` declarations describe one-time INSERT/UPDATE operations for
+Kagiroi Migration while keeping application columns non-null. See the
+[backfill API](docs/CHEATSHEET.md#not-null-column-backfills).
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,

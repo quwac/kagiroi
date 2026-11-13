@@ -47,6 +47,7 @@ object Users : Table(
 | `.computed()` | Read-only column omitted from DDL |
 | `.comment(text)` | Table-definition description |
 | `.renamedFrom(previous, ...)` | Ordered migration-only physical name lineage |
+| `.notNullBackfill { execute(query) }` | Typed one-time INSERT/UPDATE operations for adding a NOT NULL column |
 | `.transform(...)` / `.asEnum(...)` | Kotlin value-to-storage mapping |
 
 Modifiers return an updated column. Keep it in a `val` when later declarations need it.
@@ -1210,7 +1211,7 @@ Oracle's native implicit-commit behavior applies to VPD DDL.
 Runtime keys and values are bound, nested scopes are rejected, and queries must
 complete inside the scope. SQL Server and Oracle require initially empty context
 keys and clear them on exit; cleanup failures invalidate and discard the physical session.
-Security-bearing schema exports use projection version 2; Kagiroi Migration includes
+Security-bearing schema exports without backfills use projection version 2; Kagiroi Migration includes
 security changes in its normal artifact pipeline.
 
 See [native RLS](ROW_LEVEL_SECURITY.md) for complete imports,
@@ -1302,6 +1303,44 @@ automatic retries, and vendor index options. `intersectAll()` and `exceptAll()` 
 SQL Server and SQLite/D1; MariaDB rejects `lag`/`lead` defaults and CTE-scoped DML. Oracle scopes
 CTEs to INSERT ... SELECT only. MySQL/MariaDB use `ON DUPLICATE KEY UPDATE`, not `ON CONFLICT`.
 
+## NOT NULL column backfills
+
+Use `dev.quwac.kagiroi.sql.notNullBackfill` to attach typed data operations to a new
+non-null writable column. `column` refers to the column being declared, so its own
+property does not need to be initialized yet:
+
+```kotlin
+object Organizations : Table("organizations") {
+    val id = long("id").primaryKey()
+}
+
+object Profiles : Table("profiles") {
+    val organizationId = long("organization_id").notNullBackfill {
+        execute(insertInto(Organizations).values { set(Organizations.id, 7L) })
+        execute(update(column.table) { set(column, 7L) })
+    }
+}
+```
+
+`execute` here records metadata; it does not execute a query or open a connection.
+The Kotlin type remains non-null. The schema registry must include every target table.
+The export uses projection version 3 and keeps the ordered operations in evolution
+metadata, outside the physical schema hash.
+
+Kagiroi Migration adds the column as nullable without a DEFAULT, runs the declared
+operations, installs any declared DEFAULT, and then enforces NOT NULL and dependent
+constraints in the same generated file. It uses the direct final definition for new
+tables and does not repeat backfills for existing columns. Removing or changing a
+backfill declaration alone does not change the physical schema.
+
+Backfills currently accept plain typed INSERT VALUES and target-table UPDATE, including
+WHERE and exportable schema expressions. CTEs, INSERT SELECT, insert conflict clauses,
+and UPDATE FROM are rejected. Nullable, generated, and identity columns cannot declare
+this migration operation. Users own the data mapping and referenced rows; NOT NULL
+and foreign keys validate the resulting data when the migration is applied.
+PostgreSQL/PGlite, MySQL, MariaDB, SQL Server, and Oracle support staged additions.
+SQLite/D1 generation is rejected because ALTER COLUMN nullability needs a table rebuild.
+
 ## Application schema projection
 
 `schema(...)` declares table roots for schema-aware external tools.
@@ -1318,8 +1357,8 @@ val appSchema = schema(Users)
 val projectionJson = appSchema.project().encode()
 ```
 
-The versioned projection contains physical objects and `renamedFrom(...)` lineage. It neither
-connects to a database nor generates SQL.
+The versioned projection contains physical objects, `renamedFrom(...)` lineage, and one-time
+`notNullBackfill` operations. It neither connects to a database nor generates SQL.
 
 ## More detail
 

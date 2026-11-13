@@ -18,6 +18,9 @@ const val SCHEMA_PROJECTION_FORMAT_VERSION: Int = 1
 /** Projection version required when native security objects are present. */
 const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
 
+/** Projection version required for one-time typed NOT NULL backfill declarations. */
+const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
+
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
  *
@@ -41,10 +44,13 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
             put(
                 "formatVersion",
                 JsonPrimitive(
-                    if (registry.securityObjects.isEmpty()) {
-                        SCHEMA_PROJECTION_FORMAT_VERSION
-                    } else {
-                        SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
+                    when {
+                        tables.any { table -> table.columns.any { it.notNullBackfill.isNotEmpty() } } ->
+                            BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        registry.securityObjects.isNotEmpty() -> SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        else -> SCHEMA_PROJECTION_FORMAT_VERSION
                     },
                 ),
             )
@@ -103,8 +109,39 @@ private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): Json
             }
         }.jsonElements(),
     )
+    val backfills = tables.flatMap { table ->
+        table.columns.filter { it.notNullBackfill.isNotEmpty() }.map { column ->
+            buildJsonObject {
+                put("column", column.referenceJson())
+                put("statements", column.notNullBackfill.jsonArray(NotNullBackfillStatement::backfillJson))
+            }
+        }
+    }
+    if (backfills.isNotEmpty()) put("notNullBackfills", backfills.jsonElements())
     put("constraintRenames", JsonArray(emptyList()))
     put("sequenceRenames", JsonArray(emptyList()))
+}
+
+/** Backfills keep their declared statement/row order and reference physical names, not runtime identities. */
+private fun NotNullBackfillStatement.backfillJson(): JsonObject = buildJsonObject {
+    put("table", table.referenceJson())
+    when (val statement = this@backfillJson) {
+        is NotNullBackfillStatement.Insert -> {
+            put("kind", JsonPrimitive("insert"))
+            put("rows", JsonArray(statement.rows.map { row -> row.jsonArray { it.backfillAssignmentJson() } }))
+        }
+
+        is NotNullBackfillStatement.Update -> {
+            put("kind", JsonPrimitive("update"))
+            put("assignments", statement.assignments.jsonArray { it.backfillAssignmentJson() })
+            statement.predicate?.let { put("predicate", it.predicateJson()) }
+        }
+    }
+}
+
+private fun NotNullBackfillAssignment.backfillAssignmentJson(): JsonObject = buildJsonObject {
+    put("column", JsonPrimitive(column.name))
+    put("expression", expression.expressionJson())
 }
 
 private fun Table.tableJson(): JsonObject {

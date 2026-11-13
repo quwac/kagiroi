@@ -15,6 +15,9 @@ function parseShardValue(name, fallback) {
 }
 
 const cases = [
+  ["NotNullBackfillPositive", []],
+  ["NullableNotNullBackfill", ["NONE_APPLICABLE"]],
+  ["IncompleteNotNullBackfillInsert", ["NONE_APPLICABLE"]],
   ["NativeSecurityPositive", []],
   ["WrongRlsPredicate", ["ARGUMENT_TYPE_MISMATCH", "RETURN_TYPE_MISMATCH"]],
   ["WrongSecurityArguments", ["ARGUMENT_TYPE_MISMATCH"]],
