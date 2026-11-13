@@ -28,6 +28,32 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
         validateNoRepeatedInstances()
         validateNames()
         validateRelations()
+        validateBackfills()
+        validateTypeConversions()
+    }
+
+    private fun validateTypeConversions() {
+        tables.forEach { table ->
+            table.columns.forEach { column ->
+                column.typeConversion?.let { conversion ->
+                    require(!column.isNullable && !column.isIdentity && !column.isComputed && !column.isGenerated) {
+                        "typeUsing requires a non-null writable column: $column"
+                    }
+                    require(
+                        column.type === conversion.using.type && column.storageType === conversion.using.storageType,
+                    ) {
+                        "typeUsing must return the final column type: $column"
+                    }
+                    require(
+                        conversion.using.referencedColumns.all { reference ->
+                            reference.table === table && table.columns.any {
+                                it.name == reference.name && !it.isComputed && !it.isGenerated
+                            }
+                        },
+                    ) { "typeUsing must reference physical columns in its target table" }
+                }
+            }
+        }
     }
 
     private fun validateNoRepeatedInstances() {
@@ -78,6 +104,36 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
             index.keys.flatMap { it.referencedColumns }.forEach(::requireManagedColumn)
             index.includedColumns.forEach(::requireManagedColumn)
             index.predicate?.referencedColumns?.forEach(::requireManagedColumn)
+        }
+    }
+
+    /** Validate evolution declarations after all column wrappers and table roots have been assembled. */
+    private fun validateBackfills() {
+        tables.forEach { table ->
+            table.columns.filter { it.notNullBackfill.isNotEmpty() }.forEach { column ->
+                require(!column.isNullable && !column.isIdentity && !column.isComputed && !column.isGenerated) {
+                    "notNullBackfill requires a non-null writable column: $column"
+                }
+                column.notNullBackfill.forEach { statement ->
+                    require(
+                        tables.any { it === statement.table },
+                    ) { "Backfill target table is not managed: ${statement.table}" }
+                    val assignments = when (statement) {
+                        is NotNullBackfillStatement.Insert -> statement.rows.flatten()
+                        is NotNullBackfillStatement.Update -> statement.assignments
+                    }
+                    assignments.forEach { assignment ->
+                        require(
+                            statement.table.columns.any {
+                                it.name == assignment.column.name && !it.isComputed &&
+                                    !it.isGenerated
+                            },
+                        ) {
+                            "Backfill target is not a physical writable column: ${assignment.column}"
+                        }
+                    }
+                }
+            }
         }
     }
 

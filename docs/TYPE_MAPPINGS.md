@@ -207,6 +207,12 @@ See the [README](../README.md#install) for dependency declarations.
 | `UtcOffset` | ISO 8601 offset `TEXT` | ISO 8601 offset `TEXT` | ISO 8601 offset `TEXT` | ISO 8601 offset `NVARCHAR(MAX)` |
 | `TimeZone` | IANA identifier `TEXT` | IANA identifier `TEXT` | IANA identifier `TEXT` | IANA identifier `NVARCHAR(MAX)` |
 
+The PostgreSQL datetime module exposes typed `atTimeZone(zone)` expressions:
+`SqlExpression<Instant>` converts to `SqlExpression<LocalDateTime>`, and the reverse
+interprets a non-null local date-time in that zone. `currentInstant().atTimeZone("UTC")`
+is an explicit UTC local date-time for DEFAULT and UPDATE expressions, independent of
+the session time zone. Other dialects reject this PostgreSQL operator.
+
 PostgreSQL, MySQL, and MariaDB accept at most six fractional digits; SQL Server accepts seven.
 Higher precision is rejected. `UtcOffset` and `TimeZone` use lossless text because database time
 types do not retain an IANA zone identifier.

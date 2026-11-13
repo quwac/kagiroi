@@ -100,6 +100,9 @@ sealed class Column<T> protected constructor(internal val definition: ColumnDefi
     /** Name of this column in [table]. */
     val name: String get() = definition.name
 
+    /** Column ordering key; defaults to the zero-based declaration position, including inherited columns. */
+    val order: Int get() = definition.order
+
     /** Kotlin value type declared for this column. */
     override val type: ColumnType<*> get() = definition.type
 
@@ -145,6 +148,12 @@ sealed class Column<T> protected constructor(internal val definition: ColumnDefi
 
     /** Ordered historical physical names for schema evolution consumers; never part of current DDL. */
     val renameHistory: List<String> get() = definition.renameHistory
+
+    /** One-time data changes used when this column is added to an existing table. */
+    val notNullBackfill: List<NotNullBackfillStatement> get() = definition.notNullBackfill
+
+    /** One-time PostgreSQL type conversion, separate from the current physical schema. */
+    val typeConversion: ColumnTypeConversion? get() = definition.typeConversion
 
     /** Converts an application value to the scalar value consumed by a database driver. */
     override fun toStorageValue(value: T): Any? {
@@ -199,6 +208,9 @@ internal data class ColumnDefinition(
     val generatedColumnStorage: GeneratedColumnStorage? = null,
     val comment: String? = null,
     val renameHistory: List<String> = emptyList(),
+    val notNullBackfill: List<NotNullBackfillStatement> = emptyList(),
+    val typeConversion: ColumnTypeConversion? = null,
+    val order: Int = 0,
 )
 
 internal fun <T> WritableColumn<*>.withDefinition(definition: ColumnDefinition): WritableColumn<T> {

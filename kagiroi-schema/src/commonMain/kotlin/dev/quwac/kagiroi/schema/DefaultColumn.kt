@@ -104,6 +104,7 @@ private fun SqlFunction.isDefaultScalarFunction(): Boolean = when (this) {
     SqlFunction.CurrentDate,
     SqlFunction.CurrentTime,
     SqlFunction.CurrentTimestamp,
+    SqlFunction.PostgresAtTimeZone,
     -> true
 
     SqlFunction.Year,

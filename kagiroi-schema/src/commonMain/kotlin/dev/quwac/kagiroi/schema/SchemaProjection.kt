@@ -18,6 +18,12 @@ const val SCHEMA_PROJECTION_FORMAT_VERSION: Int = 1
 /** Projection version required when native security objects are present. */
 const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
 
+/** Projection version required for one-time typed NOT NULL backfill declarations. */
+const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
+
+/** Projection version required for typed ALTER COLUMN TYPE USING declarations. */
+const val TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 4
+
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
  *
@@ -41,10 +47,16 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
             put(
                 "formatVersion",
                 JsonPrimitive(
-                    if (registry.securityObjects.isEmpty()) {
-                        SCHEMA_PROJECTION_FORMAT_VERSION
-                    } else {
-                        SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
+                    when {
+                        tables.any { table -> table.columns.any { it.typeConversion != null } } ->
+                            TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        tables.any { table -> table.columns.any { it.notNullBackfill.isNotEmpty() } } ->
+                            BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        registry.securityObjects.isNotEmpty() -> SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        else -> SCHEMA_PROJECTION_FORMAT_VERSION
                     },
                 ),
             )
@@ -103,8 +115,51 @@ private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): Json
             }
         }.jsonElements(),
     )
+    val backfills = tables.flatMap { table ->
+        table.columns.filter { it.notNullBackfill.isNotEmpty() }.map { column ->
+            buildJsonObject {
+                put("column", column.referenceJson())
+                put("statements", column.notNullBackfill.jsonArray(NotNullBackfillStatement::backfillJson))
+            }
+        }
+    }
+    if (backfills.isNotEmpty()) put("notNullBackfills", backfills.jsonElements())
+    val conversions = tables.flatMap { table ->
+        table.columns.mapNotNull { column ->
+            column.typeConversion?.let { conversion ->
+                buildJsonObject {
+                    put("column", column.referenceJson())
+                    put("from", conversion.from.typeJson())
+                    put("using", conversion.using.expressionJson())
+                }
+            }
+        }
+    }
+    if (conversions.isNotEmpty()) put("typeConversions", conversions.jsonElements())
     put("constraintRenames", JsonArray(emptyList()))
     put("sequenceRenames", JsonArray(emptyList()))
+}
+
+/** Backfills keep their declared statement/row order and reference physical names, not runtime identities. */
+private fun NotNullBackfillStatement.backfillJson(): JsonObject = buildJsonObject {
+    put("table", table.referenceJson())
+    when (val statement = this@backfillJson) {
+        is NotNullBackfillStatement.Insert -> {
+            put("kind", JsonPrimitive("insert"))
+            put("rows", JsonArray(statement.rows.map { row -> row.jsonArray { it.backfillAssignmentJson() } }))
+        }
+
+        is NotNullBackfillStatement.Update -> {
+            put("kind", JsonPrimitive("update"))
+            put("assignments", statement.assignments.jsonArray { it.backfillAssignmentJson() })
+            statement.predicate?.let { put("predicate", it.predicateJson()) }
+        }
+    }
+}
+
+private fun NotNullBackfillAssignment.backfillAssignmentJson(): JsonObject = buildJsonObject {
+    put("column", JsonPrimitive(column.name))
+    put("expression", expression.expressionJson())
 }
 
 private fun Table.tableJson(): JsonObject {
@@ -506,6 +561,7 @@ private fun DefaultBinaryOperator.projectionName(): String = when (this) {
 }
 
 private fun SqlFunction.projectionName(): String = when (this) {
+    SqlFunction.PostgresAtTimeZone -> "postgresAtTimeZone"
     SqlFunction.PostgresCurrentSetting -> "postgresCurrentSetting"
     SqlFunction.Lower -> "lower"
     SqlFunction.Upper -> "upper"

@@ -88,10 +88,19 @@ object PostgresDialect :
         types.renderRecursiveCteAnchorProjection(projection, reference)
 
     override fun renderFunction(function: SqlFunction, arguments: List<String>): String = when (function) {
+        SqlFunction.PostgresAtTimeZone -> {
+            require(arguments.size == 2) { "AT TIME ZONE requires a value and time zone" }
+            "(${arguments[0]} AT TIME ZONE ${arguments[1]})"
+        }
+
         SqlFunction.PostgresCurrentSetting -> "current_setting(${arguments.joinToString(", ")})"
+
         SqlFunction.Substring -> postgresSubstring(arguments)
+
         SqlFunction.Concat -> postgresConcat(arguments)
+
         SqlFunction.Round -> postgresRound(arguments)
+
         else -> super<SqlDdlDialect>.renderFunction(function, arguments)
     }
 

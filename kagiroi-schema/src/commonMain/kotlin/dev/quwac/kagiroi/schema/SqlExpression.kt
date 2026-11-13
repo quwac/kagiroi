@@ -238,6 +238,9 @@ sealed interface SqlFunction {
     /** PostgreSQL current_setting, available only on PostgreSQL dialects. */
     data object PostgresCurrentSetting : SqlFunction
 
+    /** PostgreSQL conversion between an instant and a local date-time in a named time zone. */
+    data object PostgresAtTimeZone : SqlFunction
+
     /** Converts a string expression to lowercase. */
     data object Lower : SqlFunction
 

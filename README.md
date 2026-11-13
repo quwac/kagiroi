@@ -285,6 +285,17 @@ plan security changes, and set transaction-scoped runtime context. See
 [native RLS](docs/ROW_LEVEL_SECURITY.md) for native DDL, prerequisites, and context
 cleanup semantics.
 
+Typed `notNullBackfill` declarations describe one-time INSERT/UPDATE operations for
+Kagiroi Migration while keeping application columns non-null. See the
+[backfill API](docs/CHEATSHEET.md#not-null-column-backfills).
+
+Typed `typeUsing` declarations describe PostgreSQL conversions when an existing non-null
+column changes type. See [column type conversions](docs/CHEATSHEET.md#column-type-conversions).
+
+Column `.order(Int)` controls CREATE TABLE and schema export order, including columns
+inherited from base tables. Unspecified keys follow declaration positions; ties retain
+declaration order. See [tables and columns](docs/CHEATSHEET.md#tables-and-columns).
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,
