@@ -363,6 +363,7 @@ private fun SqlFunction.isIndexScalarFunction(): Boolean = when (this) {
     SqlFunction.Ntile,
     SqlFunction.NthValue,
     SqlFunction.PostgresCurrentSetting,
+    SqlFunction.PostgresAnyEquals,
     SqlFunction.PostgresAtTimeZone,
     is SqlFunction.Unsafe,
     -> false

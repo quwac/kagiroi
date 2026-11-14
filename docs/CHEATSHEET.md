@@ -1124,6 +1124,30 @@ Use the complete PostgreSQL setting name verbatim, such as `app.tenant_id`.
 `force()` also subjects the table owner to RLS. Command selectors, roles, and
 restrictive policies are optional; `using` and `withCheck` accept typed Boolean expressions.
 
+For a set of allowed tenant IDs, use native PostgreSQL array comparison:
+
+```kotlin
+import dev.quwac.kagiroi.postgres.PostgresTypes
+import dev.quwac.kagiroi.postgres.asPostgresArray
+import dev.quwac.kagiroi.postgres.eqAny
+import dev.quwac.kagiroi.postgres.uuidArrayText
+import dev.quwac.kagiroi.schema.nullIf
+
+val allowedTenants = nullIf(currentSetting("app.tenant_ids", missingOk = true), "")
+    .asPostgresArray(PostgresTypes.uuid)
+// Use this condition in both using { ... } and withCheck { ... }.
+val allowed = TenantDocuments.tenantId.eqAny(allowedTenants)
+val rows = database.transaction {
+    rlsContext("app.tenant_ids" to uuidArrayText(tenantIds)) { TenantDocuments.select().all() }
+}
+```
+
+`eqAny` renders PostgreSQL `= ANY`, retaining SQL NULL semantics. Empty arrays
+match no rows. Missing or empty settings become NULL through `nullIf` and grant
+no access. `asPostgresArray` keeps the element type for compile-time comparison
+checks; PostgreSQL validates the array text. These APIs also work in ordinary
+query predicates and are rejected by other dialects.
+
 ### SQL Server security policies
 
 ```kotlin

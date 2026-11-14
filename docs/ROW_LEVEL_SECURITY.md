@@ -40,6 +40,33 @@ object Documents : Table("documents") {
 }
 ```
 
+For multiple allowed tenants, build a typed array predicate and use it in both
+`using` and `withCheck`:
+
+```kotlin
+import dev.quwac.kagiroi.postgres.PostgresTypes
+import dev.quwac.kagiroi.postgres.asPostgresArray
+import dev.quwac.kagiroi.postgres.eqAny
+import dev.quwac.kagiroi.postgres.uuidArrayText
+import dev.quwac.kagiroi.schema.nullIf
+
+val tenantIds = nullIf(currentSetting("app.tenant_ids", missingOk = true), "")
+    .asPostgresArray(PostgresTypes.uuid)
+val condition = Documents.tenantId.eqAny(tenantIds)
+// In the policy: using { condition }; withCheck { condition }
+
+val rows = database.transaction {
+    rlsContext("app.tenant_ids" to uuidArrayText(allowedTenantIds)) { Documents.select().all() }
+}
+```
+
+`uuidArrayText` encodes UUIDs into the PostgreSQL array input format, including
+`{}` for an empty list. `eqAny` uses native `= ANY`: an empty array matches no
+rows, and a NULL array or unmatched NULL element preserves SQL unknown. Missing
+or empty settings produce NULL through `nullIf`, so the policy grants no access.
+The database validates array text; Kotlin types check the compared element type.
+The same predicate is usable in query filters. Other dialects reject it.
+
 `postgresRls {}` implicitly enables RLS, including when it contains no policies.
 PostgreSQL's default-deny behavior applies when RLS is enabled without an applicable
 policy. `force()` adds owner enforcement; its default is false. PostgreSQL superuser

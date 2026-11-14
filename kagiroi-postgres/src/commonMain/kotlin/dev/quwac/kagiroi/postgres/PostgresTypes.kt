@@ -144,7 +144,7 @@ class PostgresTypeRegistry(extensions: Iterable<PostgresExtension> = emptyList()
 
     /** PostgreSQL accepts these native type names in both DDL and CAST contexts. */
     internal fun castTargetName(target: SqlCastTarget<*>): String =
-        (typeOf(target.type) ?: typeOf(target.storageType))?.sqlName
+        sqlNameOf(target.type) ?: sqlNameOf(target.storageType)
             ?: throw UnsupportedCapability("cast-target:${target.type.name}")
 }
 

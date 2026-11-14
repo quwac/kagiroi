@@ -241,6 +241,9 @@ sealed interface SqlFunction {
     /** PostgreSQL conversion between an instant and a local date-time in a named time zone. */
     data object PostgresAtTimeZone : SqlFunction
 
+    /** PostgreSQL equality against any element of an array. */
+    data object PostgresAnyEquals : SqlFunction
+
     /** Converts a string expression to lowercase. */
     data object Lower : SqlFunction
 

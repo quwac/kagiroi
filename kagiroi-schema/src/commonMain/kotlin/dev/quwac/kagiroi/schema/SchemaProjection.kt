@@ -561,6 +561,7 @@ private fun DefaultBinaryOperator.projectionName(): String = when (this) {
 }
 
 private fun SqlFunction.projectionName(): String = when (this) {
+    SqlFunction.PostgresAnyEquals -> "postgresAnyEquals"
     SqlFunction.PostgresAtTimeZone -> "postgresAtTimeZone"
     SqlFunction.PostgresCurrentSetting -> "postgresCurrentSetting"
     SqlFunction.Lower -> "lower"
