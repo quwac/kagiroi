@@ -96,6 +96,10 @@ type name with zero, one, or two nonnegative attributes and require an explicit 
 | arrays and named types | `array(element)`, `namedText(...)`, `named(...)` | `String`, or the caller's explicit mapping |
 | object identifiers | `oid`, `xid`, `cid`, `xid8`, `tupleId`, `int2Vector`, `oidVector`, `aclItem`, and `regClass`/`regCollation`/`regConfig`/`regDictionary`/`regNamespace`/`regOper`/`regOperator`/`regProcedure`/`regProc`/`regRole`/`regType` | `UInt`, `ULong`, or `String` as selected by the factory |
 
+`uuidArrayText` encodes UUID lists for PostgreSQL array input and RLS settings.
+`asPostgresArray(PostgresTypes.uuid)` casts that text for typed `eqAny` comparisons.
+Empty UUID lists encode as `{}`. Arrays retain their documented text transport.
+
 `namedText` and `named` quote each schema and type component for existing enum, domain,
 composite, and extension types. PostgreSQL pseudo-types are not table columns.
 `txidSnapshot` is supported for existing schemas but PostgreSQL deprecates it for `pg_snapshot`.

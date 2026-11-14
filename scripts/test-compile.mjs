@@ -15,6 +15,8 @@ function parseShardValue(name, fallback) {
 }
 
 const cases = [
+  ["PostgresArraysPositive", []],
+  ["WrongPostgresArrayElement", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
   ["ColumnOrderPositive", []],
   ["WrongColumnOrder", ["ARGUMENT_TYPE_MISMATCH"]],
   ["OrderedGeneratedWrite", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
