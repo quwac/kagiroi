@@ -88,6 +88,11 @@ object PostgresDialect :
         types.renderRecursiveCteAnchorProjection(projection, reference)
 
     override fun renderFunction(function: SqlFunction, arguments: List<String>): String = when (function) {
+        SqlFunction.PostgresAnyEquals -> {
+            require(arguments.size == 2) { "Array ANY requires a value and an array" }
+            "(${arguments[0]} = ANY (${arguments[1]}))"
+        }
+
         SqlFunction.PostgresAtTimeZone -> {
             require(arguments.size == 2) { "AT TIME ZONE requires a value and time zone" }
             "(${arguments[0]} AT TIME ZONE ${arguments[1]})"

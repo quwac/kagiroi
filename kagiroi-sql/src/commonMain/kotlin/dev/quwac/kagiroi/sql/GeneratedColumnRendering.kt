@@ -157,9 +157,11 @@ private fun renderGeneratedPredicate(
     )
 }
 
-@Suppress("ThrowsCount") // A generated expression must reject every non-portable function explicitly.
+@Suppress("ThrowsCount", "CyclomaticComplexMethod") // One exhaustive catalog rejects non-portable functions explicitly.
 private fun defaultFunction(function: SqlFunction, arguments: List<String>): String {
     val name = when (function) {
+        SqlFunction.PostgresAnyEquals -> throw UnsupportedDdlOperation("array ANY", "requires PostgreSQL")
+
         SqlFunction.PostgresAtTimeZone -> throw UnsupportedDdlOperation("AT TIME ZONE", "requires PostgreSQL")
 
         SqlFunction.PostgresCurrentSetting -> throw UnsupportedDdlOperation("current_setting", "requires PostgreSQL")
