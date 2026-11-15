@@ -6,7 +6,7 @@ buildscript {
     dependencies {
         classpath("com.google.guava:guava:33.8.0-jre")
         classpath("org.bouncycastle:bcpkix-jdk18on:1.86")
-        classpath("org.bouncycastle:bcprov-jdk18on:1.86")
+        classpath("org.bouncycastle:bcprov-jdk18on:1.87")
         classpath("io.opentelemetry:opentelemetry-api:1.67.0")
         classpath("org.bitbucket.b_c:jose4j:0.9.7")
         classpath("org.jdom:jdom2:2.0.6.1")
