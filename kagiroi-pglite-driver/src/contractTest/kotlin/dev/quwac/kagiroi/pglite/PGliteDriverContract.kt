@@ -72,6 +72,7 @@ import kotlin.uuid.Uuid
 
 /** Runtime contract shared by the JavaScript and Wasm JavaScript PGlite adapters. */
 internal suspend fun pgliteDriverContract(database: PGliteDatabase, progress: (String) -> Unit = {}) {
+    verifyNativeEnums(database)
     sqlDatabaseContract(database, POSTGRES_COMMON_CONTRACT, progress)
     try {
         progress("joins")

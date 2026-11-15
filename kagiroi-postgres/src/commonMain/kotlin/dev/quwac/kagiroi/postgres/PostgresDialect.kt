@@ -57,6 +57,14 @@ object PostgresDialect :
 
     override fun parameterMarker(position: Int): String = "$$position"
 
+    override fun renderParameter(position: Int, expression: SqlExpression<*>?): String {
+        val definition = (expression?.storageType as? dev.quwac.kagiroi.schema.PostgresEnumStorage)?.enumDefinition
+            ?: return parameterMarker(position)
+        return "CAST(${parameterMarker(
+            position,
+        )} AS ${quoteQualifiedIdentifier(definition.schemaName, definition.name)})"
+    }
+
     override fun supportsSetOperation(operation: SetOperation): Boolean = true
 
     override fun renderCastTarget(target: SqlCastTarget<*>): String = types.castTargetName(target)
@@ -149,6 +157,9 @@ private class ConfiguredPostgresDialect(extensions: List<PostgresExtension>) :
     override fun quoteIdentifier(identifier: String): String = PostgresDialect.quoteIdentifier(identifier)
 
     override fun parameterMarker(position: Int): String = PostgresDialect.parameterMarker(position)
+
+    override fun renderParameter(position: Int, expression: SqlExpression<*>?): String =
+        PostgresDialect.renderParameter(position, expression)
 
     override fun supportsSetOperation(operation: SetOperation): Boolean = PostgresDialect.supportsSetOperation(
         operation,
@@ -295,6 +306,13 @@ private fun renderPostgresSequenceNextValue(dialect: SqlDialect, sequence: dev.q
 private class PostgresDdlRenderer(private val types: PostgresTypeRegistry) {
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.OracleEnumDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "Oracle ENUM domain",
+                "requires Oracle 23.4+",
+            )
+
+            is dev.quwac.kagiroi.sql.PostgresEnumDdlStatement -> renderPostgresEnum(dialect, statement)
+
             is dev.quwac.kagiroi.sql.SecurityDdlStatement -> renderPostgresSecurity(dialect, statement)
 
             is CreateTable -> renderCreateTable(dialect, statement)

@@ -8,6 +8,8 @@ import dev.quwac.kagiroi.schema.DoubleColumnType
 import dev.quwac.kagiroi.schema.FloatColumnType
 import dev.quwac.kagiroi.schema.IntColumnType
 import dev.quwac.kagiroi.schema.LongColumnType
+import dev.quwac.kagiroi.schema.PostgresEnumDefinition
+import dev.quwac.kagiroi.schema.PostgresEnumStorage
 import dev.quwac.kagiroi.schema.ScalarMappedColumnType
 import dev.quwac.kagiroi.schema.SchemaTypeArgument
 import dev.quwac.kagiroi.schema.SchemaTypeDescriptor
@@ -25,17 +27,26 @@ import dev.quwac.kagiroi.schema.columnMapping
  * The declaration is created only by [PostgresTypes], whose factories validate every
  * parameter and quote user-defined type names before the DDL renderer receives them.
  */
-class PostgresColumnType<T : Any, S : Any> internal constructor(
+open class PostgresColumnType<T : Any, S : Any> internal constructor(
     name: String,
     storageType: ColumnType<S>,
     mapping: ColumnMapping<T, S>,
     internal val sqlDeclaration: String,
+    final override val enumDefinition: PostgresEnumDefinition? = null,
 ) : ScalarMappedColumnType<T, S>(name, storageType, mapping),
-    StableSchemaColumnType {
-    override val schemaTypeDescriptor = SchemaTypeDescriptor(
-        id = "kagiroi.postgres.declared",
-        arguments = listOf(SchemaTypeArgument("declaration", sqlDeclaration)),
-    )
+    StableSchemaColumnType,
+    PostgresEnumStorage {
+    override val schemaTypeDescriptor = if (enumDefinition == null) {
+        SchemaTypeDescriptor("kagiroi.postgres.declared", listOf(SchemaTypeArgument("declaration", sqlDeclaration)))
+    } else {
+        SchemaTypeDescriptor(
+            "kagiroi.postgres.enum",
+            listOfNotNull(
+                enumDefinition.schemaName?.let { SchemaTypeArgument("schemaName", it) },
+                SchemaTypeArgument("name", enumDefinition.name),
+            ),
+        )
+    }
 }
 
 /** PostgreSQL column type factories for native built-ins and named schema types. */
@@ -377,6 +388,10 @@ object PostgresTypes {
         element: PostgresColumnType<*, *>,
         mapping: ColumnMapping<T, String>,
     ): PostgresColumnType<T, String> = mappedText("${element.sqlDeclaration}[]", mapping)
+
+    /** Declares a managed PostgreSQL ENUM with explicit labels in comparison order. */
+    fun enum(name: String, labels: List<String>, schemaName: String? = null): PostgresEnumColumnType =
+        PostgresEnumColumnType(PostgresEnumDefinition(name, labels, schemaName))
 
     /** Provides the named text result. */
     fun namedText(typeName: String): PostgresColumnType<String, String> = text(quotedTypeName(null, typeName))

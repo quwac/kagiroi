@@ -252,13 +252,11 @@ implementation class name:
 | `SqlServerSecurityPolicy` | Policy qualified name | State and merged predicates keyed by table + operation |
 | `OracleVpdPolicy` | Object qualified name + policy name | Function reference, statement set, check and enabled state |
 
-Security-bearing projections without backfills use `formatVersion: 2`; projections with
-`notNullBackfill` use version 3. Both include
-`schema.securityObjects`. Registries without security retain the version-1 export
-and identical existing table/column/index/sequence representation. Kagiroi Migration
-reads version 2 and includes security in its physical hash,
-semantic plan, generated SQL, and artifact delta replay. Older version-1 readers
-reject security-bearing projections.
+All schema projections use `formatVersion: 1`, including security objects,
+backfills, type conversions, and native enumeration types.
+Security-bearing projections include `schema.securityObjects`.
+Kagiroi Migration includes security in its physical hash, semantic plan,
+generated SQL, and artifact delta replay.
 
 `diffSecurity` compares only security objects. It plans PostgreSQL enable/disable,
 force/no-force, create/drop policies, and policy replacements. SQL Server changes
