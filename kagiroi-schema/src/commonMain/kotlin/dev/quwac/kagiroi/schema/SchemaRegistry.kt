@@ -11,6 +11,42 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
     internal val sequences: List<Sequence>
         get() = tables.flatMap(Table::sequences)
 
+    /** ENUM declarations collected from managed physical column types. */
+    val enumTypes: List<PostgresEnumDefinition>
+        get() {
+            val declarations = tables.flatMap { table ->
+                table.columns.filterNot(
+                    Column<*>::isComputed,
+                ).mapNotNull { (it.storageType as? PostgresEnumStorage)?.enumDefinition }
+            }
+            val groups = declarations.groupBy { it.schemaName to it.name }
+            groups.values.forEach { group ->
+                require(
+                    group.all { it.labels == group.first().labels },
+                ) { "Conflicting ENUM definitions for ${group.first().name}" }
+            }
+            return groups.values.map { it.first() }.sortedWith(
+                compareBy(PostgresEnumDefinition::schemaName, PostgresEnumDefinition::name),
+            )
+        }
+
+    /** Oracle enumeration domains collected from managed physical columns. */
+    val oracleEnumDomains: List<OracleEnumDefinition>
+        get() {
+            val groups = tables.flatMap { table ->
+                table.columns.filterNot(Column<*>::isComputed)
+                    .mapNotNull { (it.storageType as? OracleEnumStorage)?.enumDomain }
+            }.groupBy { it.schemaName to it.name }
+            groups.values.forEach { group ->
+                require(
+                    group.all { it.values.entries.toList() == group.first().values.entries.toList() },
+                ) { "Conflicting Oracle enumeration domains" }
+            }
+            return groups.values.map { it.first() }.sortedWith(
+                compareBy(OracleEnumDefinition::schemaName, OracleEnumDefinition::name),
+            )
+        }
+
     internal val indexes: List<SchemaIndex>
         get() = tables.flatMap(Table::indexes)
 
@@ -25,6 +61,8 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
 
     internal fun validate() {
         canonicalizeSecurity(tables)
+        enumTypes
+        oracleEnumDomains
         validateNoRepeatedInstances()
         validateNames()
         validateRelations()
@@ -36,11 +74,12 @@ class SchemaRegistry internal constructor(internal val tables: List<Table>) {
         tables.forEach { table ->
             table.columns.forEach { column ->
                 column.typeConversion?.let { conversion ->
-                    require(!column.isNullable && !column.isIdentity && !column.isComputed && !column.isGenerated) {
-                        "typeUsing requires a non-null writable column: $column"
+                    require(!column.isIdentity && !column.isComputed && !column.isGenerated) {
+                        "typeUsing requires a writable column: $column"
                     }
                     require(
-                        column.type === conversion.using.type && column.storageType === conversion.using.storageType,
+                        column.type === conversion.using.type && column.storageType === conversion.using.storageType &&
+                            column.isNullable == conversion.using.isNullable,
                     ) {
                         "typeUsing must return the final column type: $column"
                     }

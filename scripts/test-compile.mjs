@@ -15,6 +15,8 @@ function parseShardValue(name, fallback) {
 }
 
 const cases = [
+  ["PostgresEnumPositive", []],
+  ["WrongPostgresEnumValue", ["ARGUMENT_TYPE_MISMATCH", "NONE_APPLICABLE"]],
   ["PostgresArraysPositive", []],
   ["WrongPostgresArrayElement", ["NONE_APPLICABLE", "ARGUMENT_TYPE_MISMATCH"]],
   ["ColumnOrderPositive", []],
@@ -23,7 +25,8 @@ const cases = [
   ["TypeUsingPositive", []],
   ["WrongTypeUsingResult", ["RETURN_TYPE_MISMATCH", "ARGUMENT_TYPE_MISMATCH"]],
   ["WrongAtTimeZone", ["NONE_APPLICABLE", "UNRESOLVED_REFERENCE_WRONG_RECEIVER"]],
-  ["NullableTypeUsing", ["NONE_APPLICABLE", "UNRESOLVED_REFERENCE_WRONG_RECEIVER"]],
+  ["NullableTypeUsing", []],
+  ["WrongNullableTypeUsingResult", ["INITIALIZER_TYPE_MISMATCH", "ARGUMENT_TYPE_MISMATCH"]],
   ["NotNullBackfillPositive", []],
   ["NullableNotNullBackfill", ["NONE_APPLICABLE"]],
   ["IncompleteNotNullBackfillInsert", ["NONE_APPLICABLE"]],

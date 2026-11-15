@@ -49,7 +49,7 @@ object Users : Table(
 | `.order(value)` | Column ordering key for CREATE TABLE and schema exports |
 | `.renamedFrom(previous, ...)` | Ordered migration-only physical name lineage |
 | `.notNullBackfill { execute(query) }` | Typed one-time INSERT/UPDATE operations for adding a NOT NULL column |
-| `.typeUsing(previousType) { previous -> expression }` | One-time PostgreSQL conversion when a non-null column changes type |
+| `.typeUsing(previousType) { previous -> expression }` | One-time PostgreSQL conversion that preserves column nullability |
 | `.transform(...)` / `.asEnum(...)` | Kotlin value-to-storage mapping |
 
 Modifiers return an updated column. Keep it in a `val` when later declarations need it.
@@ -170,6 +170,59 @@ object Posts : Table("posts") {
     }
 }
 ```
+
+### PostgreSQL native ENUM
+
+Declare database labels explicitly and map Kotlin entries with `asEnum`. The registry collects
+one shared definition per qualified type name; conflicting label lists are rejected.
+
+```kotlin
+val punchKind = PostgresTypes.enum("punch_kind", listOf("ClockIn", "ClockOut"), schemaName = "app")
+enum class Punch { In, Out }
+object Punches : Table("punches") {
+    val kind = column("kind", punchKind).asEnum(Punch.entries) {
+        Punch.In mapsTo "ClockIn"
+        Punch.Out mapsTo "ClockOut"
+    }
+}
+// Creates a native type, then its table; neither declaration runs SQL.
+database.execute {
+    createPostgresEnum(punchKind.definition)
+    createTable(Punches)
+}
+```
+
+`CreatePostgresEnum`, `AddPostgresEnumValue`, and `DropPostgresEnum` also build standalone DDL.
+`addPostgresEnumValue(definition, label)` appends a label; commit before using it.
+`dropPostgresEnum(definition)` never cascades to dependent columns.
+Other dialects reject these PostgreSQL statements. Bound ENUM values use an explicit native cast
+while retaining parameter binding. SQL NULL remains available through `.nullable()`.
+
+### Oracle enumeration domains
+
+Oracle 23.4+ uses named domains with explicit enumeration names and stable text values:
+
+```kotlin
+val state = OracleTypes.enumDomain(
+    "document_state",
+    linkedMapOf("Draft" to "draft", "Published" to "published"),
+    schemaName = "APP",
+)
+object Documents : Table("DOCUMENTS", "APP") {
+    val status = column("STATUS", state)
+}
+database.execute {
+    createOracleEnumDomain(state.enumDomain)
+    createTable(Documents)
+}
+```
+
+Map Kotlin enums with `asEnum` and explicit values, as for PostgreSQL.
+Creating a domain requires the database's domain privilege.
+Oracle domain ENUM entries cannot be altered and domain targets cannot be used with `cast`.
+Drop dependent columns or tables before `dropOracleEnumDomain`; recycled Oracle tables may
+retain references until purged. Other dialects reject Oracle domain DDL.
+MySQL/MariaDB instead declare inline ENUM through their dialect type factories.
 
 ### Primary keys, UNIQUE, foreign keys, and CHECK
 
@@ -1359,8 +1412,11 @@ object Events : Table("events") {
 ```
 
 `typeUsing` exports version 4 evolution metadata, outside the physical schema hash.
+Nullable columns receive a nullable source expression and must return a nullable result;
+source and target nullability must match. For example, `long("value").nullable()` can use
+`typeUsing(IntColumnType) { cast(it, longType()) }` to preserve existing NULL values.
 It applies only to an existing column whose physical type changes. The declared previous
-type must match migration history, and both source and target columns must be non-null.
+type must match migration history, and source and target nullability must match.
 Expressions can reference physical writable columns of the same table. New columns,
 new tables, and columns already at their desired type do not run the conversion.
 PostgreSQL renders `ALTER COLUMN ... TYPE ... USING ...`; other migration dialects reject it.

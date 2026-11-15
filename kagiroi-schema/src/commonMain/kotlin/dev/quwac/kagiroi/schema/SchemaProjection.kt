@@ -24,6 +24,12 @@ const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
 /** Projection version required for typed ALTER COLUMN TYPE USING declarations. */
 const val TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 4
 
+/** Projection version required for managed PostgreSQL ENUM types. */
+const val ENUM_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 5
+
+/** Projection version for native Oracle enumeration domains. */
+const val ORACLE_ENUM_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 6
+
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
  *
@@ -48,6 +54,10 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
                 "formatVersion",
                 JsonPrimitive(
                     when {
+                        registry.oracleEnumDomains.isNotEmpty() -> ORACLE_ENUM_SCHEMA_PROJECTION_FORMAT_VERSION
+
+                        registry.enumTypes.isNotEmpty() -> ENUM_SCHEMA_PROJECTION_FORMAT_VERSION
+
                         tables.any { table -> table.columns.any { it.typeConversion != null } } ->
                             TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION
 
@@ -60,7 +70,17 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
                     },
                 ),
             )
-            put("schema", physicalSchemaJson(tables, sequences, indexes, registry.securityObjects))
+            put(
+                "schema",
+                physicalSchemaJson(
+                    tables,
+                    sequences,
+                    indexes,
+                    registry.securityObjects,
+                    registry.enumTypes,
+                    registry.oracleEnumDomains,
+                ),
+            )
             put("evolution", evolutionJson(tables, indexes))
         },
     )
@@ -71,11 +91,45 @@ private fun physicalSchemaJson(
     sequences: List<Sequence>,
     indexes: List<SchemaIndex>,
     security: List<CanonicalSecurityObject>,
+    enumTypes: List<PostgresEnumDefinition>,
+    oracleDomains: List<OracleEnumDefinition>,
 ): JsonObject = buildJsonObject {
     put("tables", tables.jsonArray(Table::tableJson))
     put("sequences", sequences.jsonArray(Sequence::sequenceJson))
     put("indexes", indexes.jsonArray(SchemaIndex::indexJson))
     if (security.isNotEmpty()) put("securityObjects", JsonArray(security.map { it.project() }))
+    if (enumTypes.isNotEmpty()) {
+        put(
+            "enumTypes",
+            enumTypes.jsonArray { definition ->
+                buildJsonObject {
+                    definition.schemaName?.let { put("schemaName", JsonPrimitive(it)) }
+                    put("name", JsonPrimitive(definition.name))
+                    put("labels", definition.labels.jsonStrings())
+                }
+            },
+        )
+    }
+    if (oracleDomains.isNotEmpty()) {
+        put(
+            "oracleEnumDomains",
+            oracleDomains.jsonArray { domain ->
+                buildJsonObject {
+                    domain.schemaName?.let { put("schemaName", JsonPrimitive(it)) }
+                    put("name", JsonPrimitive(domain.name))
+                    put(
+                        "entries",
+                        domain.values.entries.toList().jsonArray { entry ->
+                            buildJsonObject {
+                                put("name", JsonPrimitive(entry.key))
+                                put("value", JsonPrimitive(entry.value))
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
 }
 
 private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): JsonObject = buildJsonObject {

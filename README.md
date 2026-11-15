@@ -296,6 +296,17 @@ Column `.order(Int)` controls CREATE TABLE and schema export order, including co
 inherited from base tables. Unspecified keys follow declaration positions; ties retain
 declaration order. See [tables and columns](docs/CHEATSHEET.md#tables-and-columns).
 
+### Native enumeration types
+
+`PostgresTypes.enum` declares managed native ENUM types with explicit labels.
+Kotlin enums map through `asEnum`; typed DDL creates, drops, and appends values.
+Commit appended PostgreSQL values before using them.
+MySQL/MariaDB use their existing inline `MySqlTypes.enum` / `MariaDbTypes.enum` declarations.
+Oracle 23.4+ supports `OracleTypes.enumDomain(name, values, schemaName?)` with explicitly named
+text values and typed `createOracleEnumDomain` / `dropOracleEnumDomain` DDL.
+Each declaration uses its database's native syntax; SQLite/D1 and SQL Server do not emulate ENUM.
+See the [ENUM examples](docs/CHEATSHEET.md#postgresql-native-enum).
+
 ## Documentation
 
 - [Kagiroi cheat sheet](docs/CHEATSHEET.md): table declarations,
