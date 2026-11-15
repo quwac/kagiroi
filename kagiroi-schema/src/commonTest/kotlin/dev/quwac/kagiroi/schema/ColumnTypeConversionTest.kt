@@ -29,7 +29,7 @@ class ColumnTypeConversionTest {
             Json.parseToJsonElement(plain).jsonObject["schema"],
             Json.parseToJsonElement(converted).jsonObject["schema"],
         )
-        assertTrue(converted.contains("\"formatVersion\":4"))
+        assertTrue(converted.contains("\"formatVersion\":1"))
         assertTrue(converted.contains("\"typeConversions\""))
         assertTrue(converted.contains("\"from\":{\"id\":\"kagiroi.int32\""))
     }

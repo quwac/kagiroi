@@ -1299,7 +1299,7 @@ Oracle's native implicit-commit behavior applies to VPD DDL.
 Runtime keys and values are bound, nested scopes are rejected, and queries must
 complete inside the scope. SQL Server and Oracle require initially empty context
 keys and clear them on exit; cleanup failures invalidate and discard the physical session.
-Security-bearing schema exports without backfills use projection version 2; Kagiroi Migration includes
+All schema exports use `formatVersion: 1`; Kagiroi Migration includes
 security changes in its normal artifact pipeline.
 
 See [native RLS](ROW_LEVEL_SECURITY.md) for complete imports,
@@ -1411,7 +1411,7 @@ object Events : Table("events") {
 }
 ```
 
-`typeUsing` exports version 4 evolution metadata, outside the physical schema hash.
+`typeUsing` exports evolution metadata in format 1, outside the physical schema hash.
 Nullable columns receive a nullable source expression and must return a nullable result;
 source and target nullability must match. For example, `long("value").nullable()` can use
 `typeUsing(IntColumnType) { cast(it, longType()) }` to preserve existing NULL values.
@@ -1446,7 +1446,7 @@ object Profiles : Table("profiles") {
 
 `execute` here records metadata; it does not execute a query or open a connection.
 The Kotlin type remains non-null. The schema registry must include every target table.
-The export requires projection version 3 or later and keeps the ordered operations in evolution
+The format-1 export keeps the ordered operations in evolution
 metadata, outside the physical schema hash.
 
 Kagiroi Migration adds the column as nullable without a DEFAULT, runs the declared

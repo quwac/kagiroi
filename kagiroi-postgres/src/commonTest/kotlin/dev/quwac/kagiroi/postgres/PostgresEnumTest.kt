@@ -34,7 +34,7 @@ class PostgresEnumTest {
         val registry = schema(table)
         assertEquals(type.definition, registry.enumTypes.single())
         val projection = registry.project().encode()
-        assertTrue(projection.contains("\"formatVersion\":5"))
+        assertTrue(projection.contains("\"formatVersion\":1"))
         assertTrue(
             projection.contains(
                 "\"enumTypes\":[{\"schemaName\":\"app\",\"name\":\"punch_kind\",\"labels\":[\"ClockIn\",\"ClockOut\"]}]",

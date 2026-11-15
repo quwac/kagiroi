@@ -33,7 +33,7 @@ class OracleEnumTest {
         assertFailsWith<IllegalArgumentException> { table.kind.fromStorageValue("invalid") }
         val registry = schema(table)
         assertEquals(type.enumDomain.values, registry.oracleEnumDomains.single().values)
-        assertTrue(registry.project().encode().contains("\"formatVersion\":6"))
+        assertTrue(registry.project().encode().contains("\"formatVersion\":1"))
         assertTrue(registry.project().encode().contains("\"value\":\"clock_in\""))
         assertEquals(
             "CREATE TABLE \"punches\" (\"kind\" \"app\".\"punch_kind\" NOT NULL)",

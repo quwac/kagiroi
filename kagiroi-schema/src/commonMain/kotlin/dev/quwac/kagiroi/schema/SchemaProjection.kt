@@ -12,23 +12,8 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Base projection version used by schemas without native security objects. */
+/** Format version of every schema projection, including native objects and evolution metadata. */
 const val SCHEMA_PROJECTION_FORMAT_VERSION: Int = 1
-
-/** Projection version required when native security objects are present. */
-const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
-
-/** Projection version required for one-time typed NOT NULL backfill declarations. */
-const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
-
-/** Projection version required for typed ALTER COLUMN TYPE USING declarations. */
-const val TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 4
-
-/** Projection version required for managed PostgreSQL ENUM types. */
-const val ENUM_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 5
-
-/** Projection version for native Oracle enumeration domains. */
-const val ORACLE_ENUM_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 6
 
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
@@ -50,26 +35,7 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
     val indexes = registry.indexes.sortedWith(indexOrder)
     return SchemaProjection(
         buildJsonObject {
-            put(
-                "formatVersion",
-                JsonPrimitive(
-                    when {
-                        registry.oracleEnumDomains.isNotEmpty() -> ORACLE_ENUM_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        registry.enumTypes.isNotEmpty() -> ENUM_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        tables.any { table -> table.columns.any { it.typeConversion != null } } ->
-                            TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        tables.any { table -> table.columns.any { it.notNullBackfill.isNotEmpty() } } ->
-                            BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        registry.securityObjects.isNotEmpty() -> SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        else -> SCHEMA_PROJECTION_FORMAT_VERSION
-                    },
-                ),
-            )
+            put("formatVersion", JsonPrimitive(SCHEMA_PROJECTION_FORMAT_VERSION))
             put(
                 "schema",
                 physicalSchemaJson(

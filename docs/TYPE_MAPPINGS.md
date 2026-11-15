@@ -192,7 +192,7 @@ national-character, fixed-width, and LOB choices are explicit. `RAW(2000)` is st
 
 Enumeration domains require explicit entry names and unique nonempty text values, at most
 4,000 UTF-8 bytes each. Aliases and implicit numeric ordinals are not modeled.
-Schema projection version 6 carries managed domains; typed DDL creates them before table creation.
+Schema projection format 1 carries managed domains; typed DDL creates them before table creation.
 Oracle does not support changing ENUM entries or casting expressions to an enumeration domain;
 these operations are rejected. Use a new domain for a different value set.
 
