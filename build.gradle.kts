@@ -27,6 +27,7 @@ gradle.projectsEvaluated {
     WasmNpmExtension[rootProject].apply {
         override("@azure/msal-node", "7.1.0")
         override("diff", "8.0.3")
+        override("undici", "7.30.1")
     }
 }
 
