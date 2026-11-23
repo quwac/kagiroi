@@ -38,7 +38,8 @@ const TEST_DATABASE = "kagiroi";
 const TEST_USER = "kagiroi";
 const TEST_PASSWORD = ["Kagiroi", "!", "Passw0rd"].join("");
 const ORACLE_DATABASE = "FREEPDB1";
-const SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
+const SQLSERVER_IMAGE =
+  "mcr.microsoft.com/mssql/server:2022-CU28-ubuntu-22.04@sha256:4525e3efac9f3e241cb003bb2ff2a82818b502f37e12049d788b1a9fa7e13b7f";
 const selections = process.argv.slice(2);
 const requestedTargets = selections.length === 0 ? CONNECTION_TARGETS : selections;
 
@@ -142,7 +143,9 @@ async function testPostgresHyperdrive() {
 }
 
 function startMySqlContainer() {
-  return new MySqlContainer("mysql:8.4")
+  return new MySqlContainer(
+    "mysql:8.4.13@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902",
+  )
     .withDatabase(TEST_DATABASE)
     .withUsername(TEST_USER)
     .withUserPassword(TEST_PASSWORD)
