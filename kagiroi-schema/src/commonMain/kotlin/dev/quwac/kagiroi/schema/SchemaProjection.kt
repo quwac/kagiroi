@@ -12,17 +12,8 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Base projection version used by schemas without native security objects. */
+/** Format version of every schema projection, including native objects and evolution metadata. */
 const val SCHEMA_PROJECTION_FORMAT_VERSION: Int = 1
-
-/** Projection version required when native security objects are present. */
-const val SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 2
-
-/** Projection version required for one-time typed NOT NULL backfill declarations. */
-const val BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 3
-
-/** Projection version required for typed ALTER COLUMN TYPE USING declarations. */
-const val TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION: Int = 4
 
 /**
  * A deterministic, machine-readable projection of an explicit [SchemaRegistry].
@@ -44,23 +35,18 @@ internal fun projectSchema(registry: SchemaRegistry): SchemaProjection {
     val indexes = registry.indexes.sortedWith(indexOrder)
     return SchemaProjection(
         buildJsonObject {
+            put("formatVersion", JsonPrimitive(SCHEMA_PROJECTION_FORMAT_VERSION))
             put(
-                "formatVersion",
-                JsonPrimitive(
-                    when {
-                        tables.any { table -> table.columns.any { it.typeConversion != null } } ->
-                            TYPE_CONVERSION_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        tables.any { table -> table.columns.any { it.notNullBackfill.isNotEmpty() } } ->
-                            BACKFILL_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        registry.securityObjects.isNotEmpty() -> SECURITY_SCHEMA_PROJECTION_FORMAT_VERSION
-
-                        else -> SCHEMA_PROJECTION_FORMAT_VERSION
-                    },
+                "schema",
+                physicalSchemaJson(
+                    tables,
+                    sequences,
+                    indexes,
+                    registry.securityObjects,
+                    registry.enumTypes,
+                    registry.oracleEnumDomains,
                 ),
             )
-            put("schema", physicalSchemaJson(tables, sequences, indexes, registry.securityObjects))
             put("evolution", evolutionJson(tables, indexes))
         },
     )
@@ -71,11 +57,45 @@ private fun physicalSchemaJson(
     sequences: List<Sequence>,
     indexes: List<SchemaIndex>,
     security: List<CanonicalSecurityObject>,
+    enumTypes: List<PostgresEnumDefinition>,
+    oracleDomains: List<OracleEnumDefinition>,
 ): JsonObject = buildJsonObject {
     put("tables", tables.jsonArray(Table::tableJson))
     put("sequences", sequences.jsonArray(Sequence::sequenceJson))
     put("indexes", indexes.jsonArray(SchemaIndex::indexJson))
     if (security.isNotEmpty()) put("securityObjects", JsonArray(security.map { it.project() }))
+    if (enumTypes.isNotEmpty()) {
+        put(
+            "enumTypes",
+            enumTypes.jsonArray { definition ->
+                buildJsonObject {
+                    definition.schemaName?.let { put("schemaName", JsonPrimitive(it)) }
+                    put("name", JsonPrimitive(definition.name))
+                    put("labels", definition.labels.jsonStrings())
+                }
+            },
+        )
+    }
+    if (oracleDomains.isNotEmpty()) {
+        put(
+            "oracleEnumDomains",
+            oracleDomains.jsonArray { domain ->
+                buildJsonObject {
+                    domain.schemaName?.let { put("schemaName", JsonPrimitive(it)) }
+                    put("name", JsonPrimitive(domain.name))
+                    put(
+                        "entries",
+                        domain.values.entries.toList().jsonArray { entry ->
+                            buildJsonObject {
+                                put("name", JsonPrimitive(entry.key))
+                                put("value", JsonPrimitive(entry.value))
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
 }
 
 private fun evolutionJson(tables: List<Table>, indexes: List<SchemaIndex>): JsonObject = buildJsonObject {

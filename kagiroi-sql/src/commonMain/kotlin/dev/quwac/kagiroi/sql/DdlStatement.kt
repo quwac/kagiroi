@@ -674,6 +674,34 @@ class DdlExecutionScope internal constructor(private val execution: SqlExecution
         executeDdl(dev.quwac.kagiroi.sql.createSequence(sequence, ifNotExists))
     }
 
+    /** Creates an Oracle 23.4+ enumeration domain. */
+    suspend fun createOracleEnumDomain(definition: dev.quwac.kagiroi.schema.OracleEnumDefinition) {
+        executeDdl(CreateOracleEnumDomain(definition))
+    }
+
+    /** Drops an Oracle enumeration domain without cascading. */
+    suspend fun dropOracleEnumDomain(definition: dev.quwac.kagiroi.schema.OracleEnumDefinition) {
+        executeDdl(DropOracleEnumDomain(definition))
+    }
+
+    /** Creates a native PostgreSQL ENUM type. */
+    suspend fun createPostgresEnum(definition: dev.quwac.kagiroi.schema.PostgresEnumDefinition) {
+        executeDdl(CreatePostgresEnum(definition))
+    }
+
+    /** Drops a native PostgreSQL ENUM type without cascading. */
+    suspend fun dropPostgresEnum(
+        definition: dev.quwac.kagiroi.schema.PostgresEnumDefinition,
+        ifExists: Boolean = false,
+    ) {
+        executeDdl(DropPostgresEnum(definition, ifExists))
+    }
+
+    /** Appends an ENUM label; commit before using it. */
+    suspend fun addPostgresEnumValue(definition: dev.quwac.kagiroi.schema.PostgresEnumDefinition, label: String) {
+        executeDdl(AddPostgresEnumValue(definition, label))
+    }
+
     /** Drops an independent [sequence]. */
     suspend fun dropSequence(sequence: Sequence, ifExists: Boolean = false) {
         executeDdl(dev.quwac.kagiroi.sql.dropSequence(sequence, ifExists))

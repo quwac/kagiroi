@@ -93,6 +93,7 @@ type name with zero, one, or two nonnegative attributes and require an explicit 
 | document, network, and geometric | `money`, `json`, `jsonb`, `jsonPath`, `inet`, `cidr`, `macaddr`, `macaddr8`, `point`, `line`, `lineSegment`, `box`, `path`, `polygon`, `circle`, `xml` | `String` |
 | search and replication | `textSearchQuery`, `textSearchVector`, `logSequenceNumber`, `transactionSnapshot`, `txidSnapshot` | `String` |
 | ranges | `int4Range`, `int8Range`, `numericRange`, `timestampRange`, `timestampWithTimeZoneRange`, `dateRange`, and the six matching multiranges | `String` |
+| managed ENUM | `enum(name, labels, schemaName?)` | `String`, or Kotlin enum through `asEnum` |
 | arrays and named types | `array(element)`, `namedText(...)`, `named(...)` | `String`, or the caller's explicit mapping |
 | object identifiers | `oid`, `xid`, `cid`, `xid8`, `tupleId`, `int2Vector`, `oidVector`, `aclItem`, and `regClass`/`regCollation`/`regConfig`/`regDictionary`/`regNamespace`/`regOper`/`regOperator`/`regProcedure`/`regProc`/`regRole`/`regType` | `UInt`, `ULong`, or `String` as selected by the factory |
 
@@ -187,6 +188,13 @@ national-character, fixed-width, and LOB choices are explicit. `RAW(2000)` is st
 | exact and approximate numeric | `number(p,s)`, mapping overload, `number3`, `number5`, `number10`, `number19`, `number20`, `binaryFloat`, `binaryDouble` | exact `String` or explicit mapping; matching scalar for fixed declarations |
 | binary and UUID | `raw`, `raw(n)`, `blob`, `rawUuid` | `ByteArray` or RFC 4122 `Uuid` |
 | temporal | `date`, `timestamp`, `timestampWithTimeZone`, `timestampWithLocalTimeZone` | explicit `String` declarations; calendar semantics remain application-defined |
+| enumeration domain (23.4+) | `enumDomain(name, values, schemaName?)` | explicit `String` values, or Kotlin enum through `asEnum` |
+
+Enumeration domains require explicit entry names and unique nonempty text values, at most
+4,000 UTF-8 bytes each. Aliases and implicit numeric ordinals are not modeled.
+Schema projection format 1 carries managed domains; typed DDL creates them before table creation.
+Oracle does not support changing ENUM entries or casting expressions to an enumeration domain;
+these operations are rejected. Use a new domain for a different value set.
 
 Oracle NUMBER crosses node-oracledb as decimal text; Long, ULong, BigInteger, and BigDecimal
 never cross as JavaScript Number. `OracleQuwacBigNumber` maps logical BigNumber to NUMBER;
