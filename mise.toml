@@ -1,6 +1,6 @@
 [tools]
 rumdl = "0.3.2"
-java = "temurin-17.0.20+101"
+java = "temurin-17.0.20.1+1"
 bun = "1.4.3"
 node = "22.23.4"
 hk = "2.6.0"
