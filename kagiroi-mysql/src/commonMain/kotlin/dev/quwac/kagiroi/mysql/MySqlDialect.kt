@@ -277,6 +277,16 @@ class MySqlCompatibleDdlRenderer(
     /** Renders the render result. */
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.OracleEnumDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "Oracle ENUM domain",
+                "requires Oracle 23.4+",
+            )
+
+            is dev.quwac.kagiroi.sql.PostgresEnumDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "PostgreSQL ENUM",
+                "not supported by this dialect",
+            )
+
             is dev.quwac.kagiroi.sql.SecurityDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
                 "native security",
                 "unsupported dialect",
