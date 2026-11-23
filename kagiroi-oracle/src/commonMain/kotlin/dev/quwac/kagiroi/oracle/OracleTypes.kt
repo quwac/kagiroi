@@ -149,6 +149,10 @@ class OracleColumnType<T : Any, S : Any> internal constructor(
 
 /** Oracle Database 23ai storage declarations. */
 object OracleTypes {
+    /** Declares an Oracle 23.4+ enumeration domain with explicit text values; ordinal mapping is never inferred. */
+    fun enumDomain(name: String, values: Map<String, String>, schemaName: String? = null): OracleEnumColumnType =
+        OracleEnumColumnType(dev.quwac.kagiroi.schema.OracleEnumDefinition(name, values, schemaName))
+
     /** Value associated with boolean. */
     val boolean = scalar("Oracle BOOLEAN", BooleanColumnType, OracleType.BOOLEAN)
 
@@ -332,21 +336,33 @@ class OracleTypeRegistry(extensions: Iterable<OracleExtension> = emptyList()) {
 
     /** Provides the type of result. */
     fun typeOf(type: ColumnType<*>): OracleType? = when (type) {
+        is OracleEnumColumnType -> OracleType.VARCHAR2
         is OracleColumnType<*, *> -> type.oracleType
         is MappedColumnType<*, *> -> typeOf(type.underlyingType)
         else -> builtInType(type) ?: mappings.firstOrNull { it.type === type }?.oracleType
     }
 
     internal fun sqlNameOf(type: ColumnType<*>): String? = when (type) {
+        is OracleEnumColumnType -> listOfNotNull(
+            type.enumDomain.schemaName,
+            type.enumDomain.name,
+        ).joinToString(".") { "\"${it.replace("\"", "\"\"")}\"" }
+
         is OracleColumnType<*, *> -> type.sqlDeclaration
+
         is MappedColumnType<*, *> -> sqlNameOf(type.underlyingType)
+
         else -> typeOf(type)?.sqlName
     }
 
     /** Oracle CAST uses native data type names selected by its own type registry. */
-    internal fun castTargetName(target: SqlCastTarget<*>): String =
-        (typeOf(target.type) ?: typeOf(target.storageType))?.sqlName
+    internal fun castTargetName(target: SqlCastTarget<*>): String {
+        if (target.storageType is dev.quwac.kagiroi.schema.OracleEnumStorage) {
+            throw UnsupportedCapability("cast-target:Oracle-enumeration-domain")
+        }
+        return (typeOf(target.type) ?: typeOf(target.storageType))?.sqlName
             ?: throw UnsupportedCapability("cast-target:${target.type.name}")
+    }
 }
 
 @Suppress("CyclomaticComplexMethod")

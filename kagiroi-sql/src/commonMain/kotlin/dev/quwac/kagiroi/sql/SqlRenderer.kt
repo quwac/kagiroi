@@ -68,6 +68,9 @@ interface SqlDialect {
     /** Returns the parameter marker at the one-based [position]. */
     fun parameterMarker(position: Int): String
 
+    /** Renders a bound marker with any native cast required by its physical column type. */
+    fun renderParameter(position: Int, expression: SqlExpression<*>?): String = parameterMarker(position)
+
     /** Renders one typed arithmetic operator after both numeric operands have been rendered. */
     fun renderNumericBinary(operator: NumericBinaryOperator, left: String, right: String): String =
         "($left ${operator.sql} $right)"
@@ -1688,39 +1691,39 @@ private class RenderContext(private val dialect: SqlDialect) {
 
     fun addParameter(value: Int): String {
         parameters += SqlParameter(value, null)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     fun addParameters(values: List<Int>): List<String> = values.map(::addParameter)
 
     private fun <T> addColumnParameter(comparison: ValueComparison<T>): String {
         parameters += SqlParameter(comparison.column.toStorageValue(comparison.value), comparison.column)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     private fun <T> addExpressionParameter(comparison: ExpressionValueComparison<T>): String {
         parameters += SqlParameter(comparison.storageValue(), comparison.expression)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     private fun addNullSafeValueParameter(comparison: NullSafeValueComparison<*>): String {
         parameters += SqlParameter(comparison.storageValue(), comparison.expression)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     private fun addLikeParameter(comparison: LikeValueComparison<*>): String {
         parameters += SqlParameter(comparison.pattern, null)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     private fun <T> addLiteralParameter(literal: SqlLiteral<T>): String {
         parameters += SqlParameter(literal.toStorageValue(literal.value), literal)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 
     fun addColumnParameter(assignment: ColumnAssignment<*>): String {
         parameters += SqlParameter(assignment.storageValue(), assignment.column)
-        return dialect.parameterMarker(parameters.size)
+        return dialect.renderParameter(parameters.size, parameters.last().expression)
     }
 }
 
