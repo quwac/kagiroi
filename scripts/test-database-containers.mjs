@@ -223,7 +223,9 @@ async function testOracleDirect() {
   await withContainer(
     "Oracle Database Free, direct",
     () =>
-      new OracleDbContainer("gvenzl/oracle-free:23-slim")
+      new OracleDbContainer(
+        "gvenzl/oracle-free:23.26.4-slim@sha256:48a3d9db7fa7c2a2fdbdf5fff7502c93e807349a2d625718fe61668cc3daa844",
+      )
         .withDatabase(ORACLE_DATABASE)
         .withUsername(TEST_USER)
         .withPassword(TEST_PASSWORD)
