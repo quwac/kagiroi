@@ -304,13 +304,27 @@ private class OraclePagination(private val limit: Int?, private val offset: Int?
 private class OracleDdlRenderer(private val types: OracleTypeRegistry) {
     fun render(dialect: SqlDialect, statement: DdlStatement): RenderedSql = RenderedSql(
         when (statement) {
+            is dev.quwac.kagiroi.sql.OracleEnumDdlStatement -> renderOracleEnum(dialect, statement)
+
+            is dev.quwac.kagiroi.sql.PostgresEnumDdlStatement -> throw dev.quwac.kagiroi.sql.UnsupportedDdlOperation(
+                "PostgreSQL ENUM",
+                "not supported by this dialect",
+            )
+
             is dev.quwac.kagiroi.sql.SecurityDdlStatement -> renderOracleSecurity(dialect, statement)
+
             is CreateTable -> renderCreateTable(dialect, statement)
+
             is CreateSequence -> renderOracleCreateSequence(dialect, statement)
+
             is DropTable -> renderDropTable(dialect, statement)
+
             is DropSequence -> renderOracleDropSequence(dialect, statement)
+
             is AlterTable -> renderAlterTable(dialect, statement)
+
             is CreateIndex -> renderCreateIndex(dialect, statement)
+
             is DropIndex -> "DROP INDEX ${dialect.quoteQualifiedIdentifier(statement.table.schemaName, statement.name)}"
         },
         emptyList(),
