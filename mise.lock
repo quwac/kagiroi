@@ -182,9 +182,9 @@ url = "https://github.com/jdx/hk/releases/download/v2.6.0/hk-aarch64-apple-darwi
 url_api = "https://api.github.com/repos/jdx/hk/releases/assets/633469634"
 
 [[tools.java]]
-version = "temurin-17.0.20+101"
+version = "temurin-17.0.20.1+1"
 backend = "core:java"
-specifiers = ["temurin-17.0.20+101"]
+specifiers = ["temurin-17.0.20.1+1"]
 
 [tools.java."platforms.linux-arm64"]
 checksum = "sha256:457b57af8f9c93ec39080bb8c764f559dc8c89a6da1a39d718a400b7890d3e41"
