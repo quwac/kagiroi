@@ -86,7 +86,7 @@ class PostgresRlsTest {
         assertEquals(listOf(Public), policy.roles)
         assertFalse(policy.restrictive)
         assertEquals(2, registry.securityObjects.size)
-        assertTrue(registry.project().encode().contains("\"formatVersion\":2"))
+        assertTrue(registry.project().encode().contains("\"formatVersion\":1"))
         assertTrue(registry.project().encode().contains("postgresCurrentSetting"))
     }
 
